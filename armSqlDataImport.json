@@ -1,0 +1,44 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prefix": {
+            "type": "string",
+            "defaultValue": "azdefender",
+            "metadata": {
+                "description": "Prefix keyword"
+            }
+        },
+        "password": {
+            "type": "securestring",
+            "defaultValue": "Azure12345678",
+            "metadata": {
+                "description": "Password for VM, SQL and other resources"
+            }
+        }
+    },
+    "variables": {
+        "sqlName": "[concat(parameters('prefix'), '-sql-', uniqueString(resourceGroup().id))]",
+        "dbName": "sqldb",
+        "adminUsername": "tomas",
+        "dataFileUrl": "https://tomuvstore.blob.core.windows.net/cyberdemo/contosoclinic.bacpac",
+        "dataFileToken": "?sp=r&st=2020-10-22T05:58:11Z&se=2023-03-03T14:58:11Z&spr=https&sv=2019-12-12&sr=b&sig=mskTOTmb20brwKbA2DWuboMBtugH6EtnghFLbrY2ucs%3D"
+    },
+    "functions": [],
+    "resources": [
+        {
+            "name": "[concat(variables('sqlName'), '/', variables('dbName'), '/Import')]",
+            "type": "Microsoft.Sql/servers/databases/extensions",
+            "apiVersion": "2014-04-01-preview",
+            "properties": {
+                "storageKeyType": "SharedAccessKey",
+                "storageKey": "[variables('dataFileToken')]",
+                "storageUri": "[variables('dataFileUrl')]",
+                "administratorLogin": "[variables('adminUsername')]",
+                "administratorLoginPassword": "[parameters('password')]",
+                "operationMode": "Import"
+            }
+        }
+    ],
+    "outputs": {}
+}

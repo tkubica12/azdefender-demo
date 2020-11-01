@@ -1,0 +1,1794 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "prefix": {
+            "type": "string",
+            "defaultValue": "azdefender",
+            "metadata": {
+                "description": "Prefix keyword"
+            }
+        },
+        "password": {
+            "type": "securestring",
+            "defaultValue": "Azure12345678",
+            "metadata": {
+                "description": "Password for VM, SQL and other resources"
+            }
+        },
+        "adminObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "AAD object ID for admin user identity"
+            }
+        },
+        "spSqlEncryptObjectId": {
+            "type": "string",
+            "metadata": {
+                "description": "AAD object ID for identity used for SQL Always Encrypted"
+            }
+        },
+        "email": {
+            "type": "string",
+            "metadata": {
+                "description": "Email to send alerts both to and from (send to self)"
+            }
+        }
+    },
+    "variables": {
+        "vmName": "[concat(parameters('prefix'), '-vm')]",
+        "vmLinuxName": "[concat(parameters('prefix'), '-linux-vm')]",
+        "vmIpName": "[concat(parameters('prefix'), '-vm-ip')]",
+        "vmNicName": "[concat(parameters('prefix'), '-vm-nic')]",
+        "vmLinuxNicName": "[concat(parameters('prefix'), '-linux-vm-nic')]",
+        "vmDns": "[concat(parameters('prefix'), '-ip-', uniqueString(resourceGroup().id))]",
+        "fdName": "[concat(parameters('prefix'), '-', uniqueString(resourceGroup().id))]",
+        "sqlName": "[concat(parameters('prefix'), '-sql-', uniqueString(resourceGroup().id))]",
+        "dbName": "sqldb",
+        "kvName": "[concat('kv', uniqueString(resourceGroup().id))]",
+        "registryName": "[concat('acr', uniqueString(resourceGroup().id))]",
+        "storageName": "[uniqueString(resourceGroup().id)]",
+        "vnetName": "[concat(parameters('prefix'), '-vnet')]",
+        "appsNsgName": "[concat(parameters('prefix'), '-nsg')]",
+        "bastionIpName": "[concat(parameters('prefix'), '-bastion-ip')]",
+        "bastionName": "[concat(parameters('prefix'), '-bastion')]",
+        "workspaceName": "[concat(parameters('prefix'), '-logs')]",
+        "adminUsername": "tomas"
+    },
+    "functions": [],
+    "resources": [
+        {
+            "name": "[variables('vnetName')]",
+            "type": "Microsoft.Network/virtualNetworks",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "10.0.0.0/16"
+                    ]
+                },
+                "subnets": [
+                    {
+                        "name": "apps",
+                        "properties": {
+                            "addressPrefix": "10.0.0.0/24"
+                        }
+                    },
+                    {
+                        "name": "AzureBastionSubnet",
+                        "properties": {
+                            "addressPrefix": "10.0.1.0/24"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('bastionIpName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "publicIPAllocationMethod": "Static"
+
+            }
+        },
+        {
+            "name": "[variables('vmIpName')]",
+            "type": "Microsoft.Network/publicIPAddresses",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "publicIPAllocationMethod": "Dynamic",
+                "dnsSettings": {
+                    "domainNameLabel": "[variables('vmDns')]"
+                }
+            }
+        },
+        {
+            "name": "[variables('bastionName')]",
+            "type": "Microsoft.Network/bastionHosts",
+            "apiVersion": "2020-05-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/publicIpAddresses', variables('bastionIpName'))]",
+                "[resourceId('Microsoft.Network/virtualNetworks', variables('vnetName'))]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "IpConf",
+                        "properties": {
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'AzureBastionSubnet')]"
+                            },
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIpAddresses', variables('bastionIpName'))]"
+                            }
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('appsNsgName')]",
+            "type": "Microsoft.Network/networkSecurityGroups",
+            "apiVersion": "2018-08-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "securityRules": [
+                    {
+                        "name": "web",
+                        "properties": {
+                            "description": "description",
+                            "protocol": "Tcp",
+                            "sourcePortRange": "*",
+                            "destinationPortRanges": [ "80", "443" ],
+                            "sourceAddressPrefix": "*",
+                            "destinationAddressPrefix": "*",
+                            "access": "Allow",
+                            "priority": 200,
+                            "direction": "Inbound"
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[variables('vmNicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[variables('vmIpName')]",
+                "[variables('vnetName')]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "publicIPAddress": {
+                                "id": "[resourceId('Microsoft.Network/publicIPAddresses', variables('vmIpName'))]"
+                            },
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'apps')]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appsNsgName'))]"
+                }
+            }
+        },
+        {
+            "name": "[variables('vmLinuxNicName')]",
+            "type": "Microsoft.Network/networkInterfaces",
+            "apiVersion": "2019-11-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[variables('vmIpName')]",
+                "[variables('vnetName')]"
+            ],
+            "properties": {
+                "ipConfigurations": [
+                    {
+                        "name": "ipConfig1",
+                        "properties": {
+                            "privateIPAllocationMethod": "Dynamic",
+                            "subnet": {
+                                "id": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('vnetName'), 'apps')]"
+                            }
+                        }
+                    }
+                ],
+                "networkSecurityGroup": {
+                    "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('appsNsgName'))]"
+                }
+            }
+        },
+        {
+            "name": "[variables('vmName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[variables('vmNicName')]",
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]"
+            ],
+            "identity": {
+                "type": "userAssigned",
+                "userAssignedIdentities": {
+                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]": {}
+                }
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B2ms"
+                },
+                "osProfile": {
+                    "computerName": "win1-vm",
+                    "adminUsername": "[variables('adminUsername')]",
+                    "adminPassword": "[parameters('password')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "MicrosoftWindowsServer",
+                        "offer": "WindowsServer",
+                        "sku": "2016-Datacenter",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(variables('vmName'), '-OSDisk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmNicName'))]"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "type": "extensions",
+                    "name": "Microsoft.EnterpriseCloud.Monitoring",
+                    "apiVersion": "2015-06-15",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                        "type": "MicrosoftMonitoringAgent",
+                        "typeHandlerVersion": "1.0",
+                        "autoUpgradeMinorVersion": true,
+                        "settings": {
+                            "workspaceId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName')), '2015-03-20').customerId]"
+                        },
+                        "protectedSettings": {
+                            "workspaceKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName')), '2015-03-20').primarySharedKey]"
+                        }
+                    }
+                },
+                {
+                    "type": "extensions",
+                    "name": "DAExtension",
+                    "apiVersion": "2015-06-15",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.Azure.Monitoring.DependencyAgent",
+                        "type": "DependencyAgentWindows",
+                        "typeHandlerVersion": "9.5",
+                        "autoUpgradeMinorVersion": true
+                    }
+                },
+                {
+                    "type": "providers/serverVulnerabilityAssessments",
+                    "name": "Microsoft.Security/default",
+                    "apiVersion": "2015-06-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'Microsoft.EnterpriseCloud.Monitoring')]"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "[variables('vmLinuxName')]",
+            "type": "Microsoft.Compute/virtualMachines",
+            "apiVersion": "2019-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[variables('vmLinuxNicName')]",
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]"
+            ],
+            "identity": {
+                "type": "userAssigned",
+                "userAssignedIdentities": {
+                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]": {}
+                }
+            },
+            "properties": {
+                "hardwareProfile": {
+                    "vmSize": "Standard_B1ms"
+                },
+                "osProfile": {
+                    "computerName": "lin1-vm",
+                    "adminUsername": "[variables('adminUsername')]",
+                    "adminPassword": "[parameters('password')]"
+                },
+                "storageProfile": {
+                    "imageReference": {
+                        "publisher": "Canonical",
+                        "offer": "UbuntuServer",
+                        "sku": "18.04-LTS",
+                        "version": "latest"
+                    },
+                    "osDisk": {
+                        "name": "[concat(variables('vmLinuxName'), '-OSDisk')]",
+                        "caching": "ReadWrite",
+                        "createOption": "FromImage"
+                    }
+                },
+                "networkProfile": {
+                    "networkInterfaces": [
+                        {
+                            "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('vmLinuxNicName'))]"
+                        }
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "type": "extensions",
+                    "name": "OMSExtension",
+                    "apiVersion": "2018-06-01",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmLinuxName'))]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+                        "type": "OmsAgentForLinux",
+                        "typeHandlerVersion": "1.13",
+                        "autoUpgradeMinorVersion": true,
+                        "settings": {
+                            "workspaceId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName')), '2015-03-20').customerId]"
+                        },
+                        "protectedSettings": {
+                            "workspaceKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName')), '2015-03-20').primarySharedKey]"
+                        }
+                    }
+                },
+                {
+                    "type": "extensions",
+                    "name": "DAExtension",
+                    "apiVersion": "2015-06-15",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmLinuxName'))]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.Azure.Monitoring.DependencyAgent",
+                        "type": "DependencyAgentLinux",
+                        "typeHandlerVersion": "9.5",
+                        "autoUpgradeMinorVersion": true
+                    }
+                },
+                {
+                    "type": "providers/serverVulnerabilityAssessments",
+                    "name": "Microsoft.Security/default",
+                    "apiVersion": "2015-06-01-preview",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmLinuxName'))]",
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmLinuxName'), 'OMSExtension')]"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "[variables('workspaceName')]",
+            "type": "Microsoft.OperationalInsights/workspaces",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "sku": {
+                    "name": "PerGB2018"
+                }
+            }
+        },
+        {
+            "name": "[concat('SecurityInsights','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('SecurityInsights','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/SecurityInsights",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('SecurityCenterFree','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('SecurityCenterFree','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/SecurityCenterFree",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('Security','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('Security','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/Security",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('SQLAdvancedThreatProtection','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('SQLAdvancedThreatProtection','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/SQLAdvancedThreatProtection",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('SQLVulnerabilityAssessment','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('SQLVulnerabilityAssessment','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/SQLVulnerabilityAssessment",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('VMInsights','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('VMInsights','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/VMInsights",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        {
+            "name": "[concat('WindowsFirewall','(', variables('workspaceName'),')')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "properties": {
+                "workspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            },
+            "plan": {
+                "name": "[concat('WindowsFirewall','(', variables('workspaceName'),')')]",
+                "product": "OMSGallery/WindowsFirewall",
+                "publisher": "Microsoft",
+                "promotionCode": ""
+            }
+        },
+        // {
+        //     "name": "[concat(variables('workspaceName'), '/SecurityInsightsSecurityEventCollectionConfiguration')]",
+        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+        //     "apiVersion": "2020-03-01-preview",
+        //     "dependsOn": [
+        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+        //     ],
+        //     "location": "[resourceGroup().location]",
+        //     "kind": "SecurityInsightsSecurityEventCollectionConfiguration",
+        //     "properties": {
+        //         "tier": "All",
+        //         "tierSetMethod": "Custom"
+        //     }
+        // },
+        // {
+        //     "name": "[concat(variables('workspaceName'), '/SecurityEventCollectionConfiguration')]",
+        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+        //     "apiVersion": "2020-03-01-preview",
+        //     "dependsOn": [
+        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+        //     ],
+        //     "location": "[resourceGroup().location]",
+        //     "kind": "SecurityEventCollectionConfiguration",
+        //     "properties": {
+        //         "tier": "All",
+        //         "tierSetMethod": "Custom"
+        //     }
+        // },
+        // {
+        //     "name": "[concat(variables('workspaceName'), '/SecurityCenterSecurityWindowsBaselineConfiguration')]",
+        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+        //     "apiVersion": "2020-03-01-preview",
+        //     "dependsOn": [
+        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+        //     ],
+        //     "location": "[resourceGroup().location]",
+        //     "kind": "SecurityCenterSecurityWindowsBaselineConfiguration",
+        //     "properties": {
+        //         "tier": "All",
+        //         "tierSetMethod": "Custom"
+        //     }
+        // },
+        // {
+        //     "name": "[concat(variables('workspaceName'), '/SecurityWindowsBaselineConfiguration')]",
+        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+        //     "apiVersion": "2020-03-01-preview",
+        //     "dependsOn": [
+        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+        //     ],
+        //     "location": "[resourceGroup().location]",
+        //     "kind": "SecurityWindowsBaselineConfiguration",
+        //     "properties": {
+        //         "tier": "All",
+        //         "tierSetMethod": "Custom"
+        //     }
+        // },
+        {
+            "name": "[concat(variables('workspaceName'), '/syslogCollection')]",
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "apiVersion": "2020-03-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "location": "[resourceGroup().location]",
+            "kind": "LinuxSyslogCollection",
+            "properties": {
+                "state": "Enabled"
+            }
+        },
+        {
+            "name": "[concat(variables('workspaceName'), '/WindowsEventApp')]",
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "apiVersion": "2020-03-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "location": "[resourceGroup().location]",
+            "kind": "WindowsEvent",
+            "properties": {
+                "eventLogName": "Application",
+                "eventTypes": [
+                    {
+                        "eventType": "Error"
+                    },
+                    {
+                        "eventType": "Warning"
+                    },
+                    {
+                        "eventType": "Information"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(variables('workspaceName'), '/WindowsEventSystem')]",
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "apiVersion": "2020-03-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "location": "[resourceGroup().location]",
+            "kind": "WindowsEvent",
+            "properties": {
+                "eventLogName": "System",
+                "eventTypes": [
+                    {
+                        "eventType": "Error"
+                    },
+                    {
+                        "eventType": "Warning"
+                    },
+                    {
+                        "eventType": "Information"
+                    }
+                ]
+            }
+        },
+        {
+            "name": "[concat(variables('workspaceName'), concat('/',replace(subscription().subscriptionId,'-', '')))]",
+            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
+            "apiVersion": "2020-03-01-preview",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+            ],
+            "location": "[resourceGroup().location]",
+            "kind": "AzureActivityLog",
+            "properties": {
+                "linkedResourceId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/microsoft.insights/eventtypes/management')]"
+            }
+        },
+        {
+            "name": "[variables('sqlName')]",
+            "type": "Microsoft.Sql/servers",
+            "apiVersion": "2014-04-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "administratorLogin": "[variables('adminUsername')]",
+                "administratorLoginPassword": "[parameters('password')]"
+            },
+            "resources": [
+                {
+                    "type": "firewallRules",
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "AllowAllWindowsAzureIps",
+                    "properties": {
+                        "startIpAddress": "0.0.0.0",
+                        "endIpAddress": "0.0.0.0"
+                    }
+                },
+                {
+                    "type": "firewallRules",
+                    "apiVersion": "2014-04-01",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "name": "all",
+                    "properties": {
+                        "startIpAddress": "0.0.0.0",
+                        "endIpAddress": "255.255.255.255"
+                    }
+                },
+                {
+                    "apiVersion": "2017-03-01-preview",
+                    "type": "auditingSettings",
+                    "name": "DefaultAuditingSettings",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/', variables('sqlName'))]"
+                    ],
+                    "properties": {
+                        "State": "Enabled",
+                        "auditActionsAndGroups": null,
+                        "isAzureMonitorTargetEnabled": true
+                    }
+                },
+                {
+                    "type": "vulnerabilityAssessments",
+                    "apiVersion": "2018-06-01-preview",
+                    "name": "Default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]",
+                        "[resourceId('Microsoft.Storage/StorageAccounts', variables('storageName'))]"
+                    ],
+                    "properties": {
+                        "storageContainerPath": "[concat('https://', variables('storageName'), '.blob.core.windows.net/vulnerability-assessment/')]",
+                        "recurringScans": {
+                            "isEnabled": true,
+                            "emailSubscriptionAdmins": false,
+                            "emails": []
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "[concat(variables('sqlName'), '/', variables('dbName'))]",
+            "type": "Microsoft.Sql/servers/databases",
+            "apiVersion": "2020-08-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
+            ],
+            "sku": {
+                "name": "GP_S_Gen5",
+                "tier": "GeneralPurpose",
+                "family": "Gen5",
+                "capacity": 2
+            },
+            "kind": "v12.0,user,vcore,serverless",
+            "properties": {
+                "collation": "SQL_Latin1_General_CP1_CI_AS",
+                "maxSizeBytes": 1073741824,
+                "catalogCollation": "SQL_Latin1_General_CP1_CI_AS",
+                "zoneRedundant": false,
+                "readScale": "Disabled",
+                "autoPauseDelay": 60,
+                "storageAccountType": "GRS",
+                "minCapacity": 0.5
+            },
+            "resources": [
+                {
+                    "apiVersion": "2020-02-02-preview",
+                    "type": "securityAlertPolicies",
+                    "name": "default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/databases', variables('sqlName'), variables('dbName'))]"
+                    ],
+                    "properties": {
+                        "state": "Enabled"
+                    }
+                },
+                {
+                    "type": "transparentDataEncryption",
+                    "apiVersion": "2014-04-01",
+                    "name": "current",
+                    "location": "West Europe",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/databases', variables('sqlName'), variables('dbName'))]"
+                    ],
+                    "properties": {
+                        "status": "Disabled"
+                    }
+                },
+                {
+                    "type": "vulnerabilityAssessments",
+                    "apiVersion": "2017-03-01-preview",
+                    "name": "Default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/databases', variables('sqlName'), variables('dbName'))]",
+                        "[resourceId('Microsoft.Sql/servers/databases/securityAlertPolicies', variables('sqlName'), variables('dbName'), 'default')]"
+                    ],
+                    "properties": {
+                        "recurringScans": {
+                            "isEnabled": false,
+                            "emailSubscriptionAdmins": false,
+                            "emails": []
+                        }
+                    }
+                },
+                {
+                    "type": "auditingSettings",
+                    "apiVersion": "2017-03-01-preview",
+                    "name": "Default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/databases', variables('sqlName'), variables('dbName'))]"
+                    ],
+                    "properties": {
+                        "retentionDays": 0,
+                        "auditActionsAndGroups": [
+                            "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+                            "FAILED_DATABASE_AUTHENTICATION_GROUP",
+                            "BATCH_COMPLETED_GROUP"
+                        ],
+                        "isAzureMonitorTargetEnabled": true,
+                        "state": "Enabled"
+                    }
+                },
+                {
+                    "name": "Microsoft.Insights/service",
+                    "type": "providers/diagnosticSettings",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers/databases',variables('sqlName'),variables('dbName'))]",
+                        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+                    ],
+                    "apiVersion": "2017-05-01-preview",
+                    "properties": {
+                        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]",
+                        "logs": [
+                            {
+                                "category": "QueryStoreRuntimeStatistics",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "QueryStoreWaitStatistics",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "Errors",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "DatabaseWaitStatistics",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "Timeouts",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "Blocks",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "SQLInsights",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "SQLSecurityAuditEvents",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": false
+                                }
+                            }
+                        ],
+                        "metrics": [
+                            {
+                                "timeGrain": "AllMetrics",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "enabled": true,
+                                    "days": 14
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        },
+        {
+            "name": "[variables('storageName')]",
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "location": "[resourceGroup().location]",
+            "kind": "StorageV2",
+            "sku": {
+                "name": "Standard_LRS"
+            },
+            "resources": [
+                {
+                    "type": "providers/advancedThreatProtectionSettings",
+                    "name": "Microsoft.Security/current",
+                    "apiVersion": "2019-01-01",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Storage/storageAccounts/', variables('storageName'))]"
+                    ],
+                    "properties": {
+                        "isEnabled": true
+                    }
+                }
+            ]
+        },
+        {
+            "name": "[concat('SQLAuditing[', variables('workspaceName'), ']')]",
+            "type": "Microsoft.OperationsManagement/solutions",
+            "apiVersion": "2015-11-01-preview",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('microsoft.operationalinsights/workspaces', variables('workspaceName'))]"
+            ],
+            "plan": {
+                "name": "[concat('SQLAuditing[', variables('workspaceName'), ']')]",
+                "promotionCode": "",
+                "product": "SQLAuditing",
+                "publisher": "Microsoft"
+            },
+            "properties": {
+                "workspaceResourceId": "[resourceId('microsoft.operationalinsights/workspaces', variables('workspaceName'))]",
+                "containedResources": [
+                    "[concat(resourceId('microsoft.operationalinsights/workspaces', variables('workspaceName')), '/views/SQLSecurityInsights')]",
+                    "[concat(resourceId('microsoft.operationalinsights/workspaces', variables('workspaceName')), '/views/SQLAccessToSensitiveData')]"
+                ],
+                "referencedResources": []
+            }
+        },
+        {
+            "name": "[variables('fdName')]",
+            "type": "Microsoft.Network/frontDoors",
+            "apiVersion": "2020-05-01",
+            "dependsOn": [
+                "[resourceId('Microsoft.Network/frontDoorWebApplicationFirewallPolicies', 'wafpolicy')]"
+            ],
+            "location": "global",
+            "properties": {
+                "routingRules": [
+                    {
+                        "name": "routingRule1",
+                        "properties": {
+                            "frontendEndpoints": [
+                                {
+                                    "id": "[resourceId('Microsoft.Network/frontDoors/frontendEndpoints', variables('fdName'), 'frontendEndpoint1')]"
+                                }
+                            ],
+                            "acceptedProtocols": [
+                                "Http",
+                                "Https"
+                            ],
+                            "patternsToMatch": [
+                                "/*"
+                            ],
+                            "routeConfiguration": {
+                                "@odata.type": "#Microsoft.Azure.FrontDoor.Models.FrontdoorForwardingConfiguration",
+                                "forwardingProtocol": "HttpOnly",
+                                "backendPool": {
+                                    "id": "[resourceId('Microsoft.Network/frontDoors/backendPools', variables('fdName'), 'backendPool1')]"
+                                }
+                            },
+                            "enabledState": "Enabled"
+                        }
+                    }
+                ],
+                "healthProbeSettings": [
+                    {
+                        "name": "healthProbeSettings1",
+                        "properties": {
+                            "path": "/",
+                            "protocol": "Http",
+                            "intervalInSeconds": 120
+                        }
+                    }
+                ],
+                "loadBalancingSettings": [
+                    {
+                        "name": "loadBalancingSettings1",
+                        "properties": {
+                            "sampleSize": 4,
+                            "successfulSamplesRequired": 2
+                        }
+                    }
+                ],
+                "backendPools": [
+                    {
+                        "name": "backendPool1",
+                        "properties": {
+                            "backends": [
+                                {
+                                    "address": "[concat(variables('vmDns'), '.', resourceGroup().location, '.cloudapp.azure.com')]",
+                                    "backendHostHeader": "[concat(variables('vmDns'), '.', resourceGroup().location, '.cloudapp.azure.com')]",
+                                    "httpPort": 80,
+                                    "httpsPort": 443,
+                                    "weight": 50,
+                                    "priority": 1,
+                                    "enabledState": "Enabled"
+                                }
+                            ],
+                            "loadBalancingSettings": {
+                                "id": "[resourceId('Microsoft.Network/frontDoors/loadBalancingSettings', variables('fdName'), 'loadBalancingSettings1')]"
+                            },
+                            "healthProbeSettings": {
+                                "id": "[resourceId('Microsoft.Network/frontDoors/healthProbeSettings', variables('fdName'), 'healthProbeSettings1')]"
+                            }
+                        }
+                    }
+                ],
+                "frontendEndpoints": [
+                    {
+                        "name": "frontendEndpoint1",
+                        "properties": {
+                            "hostName": "[concat(variables('fdName'), '.azurefd.net')]",
+                            "sessionAffinityEnabledState": "Disabled",
+                            "webApplicationFirewallPolicyLink": {
+                                "id": "[resourceId('Microsoft.Network/frontDoorWebApplicationFirewallPolicies', 'wafpolicy')]"
+                            }
+                        }
+                    }
+                ],
+                "enabledState": "Enabled"
+            },
+            "resources": [
+                {
+                    "name": "Microsoft.Insights/service",
+                    "type": "providers/diagnosticSettings",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Network/frontDoors',variables('fdName'))]"
+                    ],
+                    "apiVersion": "2017-05-01-preview",
+                    "properties": {
+                        "workspaceId": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]",
+                        "logs": [
+                            {
+                                "category": "FrontdoorWebApplicationFirewallLog",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            },
+                            {
+                                "category": "FrontdoorAccessLog",
+                                "enabled": true,
+                                "retentionPolicy": {
+                                    "days": 14,
+                                    "enabled": true
+                                }
+                            }
+                        ],
+                        "metrics": []
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Network/frontDoorWebApplicationFirewallPolicies",
+            "name": "wafpolicy",
+            "apiVersion": "2020-04-01",
+            "location": "global",
+            "tags": {},
+            "properties": {
+                "policySettings": {
+                    "enabledState": "Enabled",
+                    "mode": "Prevention",
+                    "customBlockResponseStatusCode": 403,
+                    "customBlockResponseBody": "VGFrIHRha2hsZSBuZSwga2FtbyE="
+                },
+                "customRules": {
+                    "rules": []
+                },
+                "managedRules": {
+                    "managedRuleSets": [
+                        {
+                            "ruleSetType": "DefaultRuleSet",
+                            "ruleSetVersion": "1.0",
+                            "ruleGroupOverrides": [],
+                            "exclusions": []
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "[variables('kvName')]",
+            "type": "Microsoft.KeyVault/vaults",
+            "apiVersion": "2016-10-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]"
+            ],
+            "properties": {
+                "enabledForDeployment": true,
+                "enabledForTemplateDeployment": true,
+                "enabledForDiskEncryption": true,
+                "tenantId": "[subscription().tenantId]",
+                "accessPolicies": [
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[parameters('adminObjectId')]",
+                        "permissions": {
+                            "keys": [
+                                "Get",
+                                "List",
+                                "Update",
+                                "Create",
+                                "Import",
+                                "Delete",
+                                "Recover",
+                                "Backup",
+                                "Restore",
+                                "Decrypt",
+                                "Encrypt",
+                                "UnwrapKey",
+                                "WrapKey",
+                                "Verify",
+                                "Sign",
+                                "Purge"
+                            ],
+                            "secrets": [
+                                "Get",
+                                "List",
+                                "Set",
+                                "Delete",
+                                "Recover",
+                                "Backup",
+                                "Restore",
+                                "Purge"
+                            ],
+                            "certificates": [
+                                "Get",
+                                "List",
+                                "Update",
+                                "Create",
+                                "Import",
+                                "Delete",
+                                "Recover",
+                                "Backup",
+                                "Restore",
+                                "ManageContacts",
+                                "ManageIssuers",
+                                "GetIssuers",
+                                "ListIssuers",
+                                "SetIssuers",
+                                "DeleteIssuers",
+                                "Purge"
+                            ]
+                        }
+                    },
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[parameters('spSqlEncryptObjectId')]",
+                        "permissions": {
+                            "keys": [
+                                "Get",
+                                "List",
+                                "UnwrapKey",
+                                "WrapKey",
+                                "Verify",
+                                "Sign"
+                            ],
+                            "secrets": [],
+                            "certificates": []
+                        }
+                    },
+                    {
+                        "tenantId": "[subscription().tenantId]",
+                        "objectId": "[reference('myVmIdentity').principalId]",
+                        "permissions": {
+                            "secrets": [
+                                "Get",
+                                "List"
+                            ],
+                            "keys": [],
+                            "certificates": []
+                        }
+                    }
+                ],
+                "sku": {
+                    "name": "standard",
+                    "family": "A"
+                }
+            },
+            "resources": []
+        },
+        {
+            "name": "myVmIdentity",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]"
+        },
+        {
+            "name": "automationIdentity",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]"
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[guid(resourceGroup().id, 'contributor')]",
+            "dependsOn": [
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
+                "principalId": "[reference('automationIdentity').principalId]"
+            }
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2018-09-01-preview",
+            "name": "[guid(resourceGroup().id, 'dataContributor')]",
+            "dependsOn": [
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
+            "properties": {
+                "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+                "principalId": "[reference('automationIdentity').principalId]"
+            }
+        },
+        {
+            "name": "[variables('registryName')]",
+            "type": "Microsoft.ContainerRegistry/registries",
+            "apiVersion": "2019-05-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard"
+            },
+            "properties": {
+                "adminUserEnabled": false
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "azdefenderOfficeConnection",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "displayName": "[parameters('email')]",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "apiVersion": "2016-06-01",
+            "name": "azdefenderAlertsConnection",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "displayName": "[parameters('email')]",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/ascalert')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "azdefenderDeleteBlob",
+            "location": "[resourceGroup().location]",
+            "tags": {
+                "LogicAppsCategory": "security"
+            },
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                "[resourceId('Microsoft.Web/connections', 'azdefenderAlertsConnection')]",
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "SOCEmailAddress": {
+                            "defaultValue": "[parameters('email')]",
+                            "type": "String"
+                        }
+                    },
+                    "triggers": {
+                        "When_an_Azure_Security_Center_Alert_is_created_or_triggered": {
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "callback_url": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['ascalert']['connectionId']"
+                                    }
+                                },
+                                "path": "/Microsoft.Security/Alert/subscribe"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "If_request_approved": {
+                            "actions": {
+                                "Delete_Blob": {
+                                    "runAfter": {},
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://@{triggerBody()?['CompromisedEntity']}.blob.core.windows.net/",
+                                            "type": "ManagedServiceIdentity",
+                                            "identity": "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                                        },
+                                        "headers": {
+                                            "x-ms-version": "2019-07-07"
+                                        },
+                                        "method": "DELETE",
+                                        "uri": "@variables('BlobUri')"
+                                    }
+                                },
+                                "HTTP": {
+                                    "runAfter": {
+                                        "Send_an_email_(V2)": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Http",
+                                    "inputs": {
+                                        "authentication": {
+                                            "audience": "https://management.azure.com",
+                                            "type": "ManagedServiceIdentity"
+                                        },
+                                        "method": "POST",
+                                        "uri": "https://management.azure.com/subscriptions/@{first(skip(split(triggerBody()?['AzureResourceId'],'/'),2))}/resourceGroups/@{first(skip(split(triggerBody()?['AzureResourceId'],'/'),4))}/providers/Microsoft.Security/locations/centralus/alerts/@{triggerBody()?['SystemAlertId']}/dismiss?api-version=2019-01-01"
+                                    }
+                                },
+                                "Send_an_email_(V2)": {
+                                    "runAfter": {
+                                        "Delete_Blob": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": {
+                                            "Body": "<p>You’ve successfully mitigated a potential malware attack<br>\n<br>\nBlob &nbsp;@{triggerBody()?['ExtendedProperties']?['Blob']} was successfully deleted following your request</p>",
+                                            "Importance": "High",
+                                            "Subject": "Blob  @{triggerBody()?['ExtendedProperties']?['Blob']} was successfully deleted following your request",
+                                            "To": "@parameters('SOCEmailAddress')"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['office365']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/v2/Mail"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "Send_approval_email": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "equals": [
+                                            "@body('Send_approval_email')?['SelectedOption']",
+                                            "Delete"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If"
+                        },
+                        "Initialize_Blob_Uri": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "BlobUri",
+                                        "type": "string",
+                                        "value": "https://@{triggerBody()?['CompromisedEntity']}.blob.core.windows.net/@{triggerBody()?['ExtendedProperties']?['Container']}/@{triggerBody()?['ExtendedProperties']?['Blob']}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Send_approval_email": {
+                            "runAfter": {
+                                "Initialize_Blob_Uri": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "Message": {
+                                        "Body": "<p>This email is sent by a playbook run on your subscription</p>\n<p>&nbsp;</p>\n<p>@{triggerBody()?['Description']}</p>\n<p>&nbsp;</p>\n<p>Storage Account: @{triggerBody()?['CompromisedEntity']}</p>\n<p>Container: @{triggerBody()?['ExtendedProperties']?['Container']}</p>\n<p>Blob name: @{triggerBody()?['ExtendedProperties']?['Blob']}</p>\n<p>Detected by: @{triggerBody()?['AlertType']}</p>\n<p>&nbsp;</p>\n<a href=\"@{triggerBody()?['AlertUri']}\">More details can be found here</a>\n<p>&nbsp;</p>\nAlternatively, you can remediate this manually:\nGo to Azure Portal, and delete blob @{triggerBody()?['ExtendedProperties']?['Blob']}  in storage account @{triggerBody()?['CompromisedEntity']}\n<p>&nbsp;</p>\n<p><strong>Delete Blob ?</strong></p>\n",
+                                        "Importance": "High",
+                                        "Options": "Delete, Ignore",
+                                        "Subject": "Blob deletion request - a potential security threat on @{triggerBody()?['CompromisedEntity']}",
+                                        "To": "@parameters('SOCEmailAddress')",
+                                        "UseOnlyHTMLMessage": true
+                                    },
+                                    "NotificationUrl": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "path": "/approvalmail/$subscriptions"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "ascalert": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'azdefenderAlertsConnection')]",
+                                "connectionName": "azdefenderAlertsConnection",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/ascalert')]"
+                            },
+                            "office365": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                                "connectionName": "azdefenderOfficeConnection",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "isolateVm",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                "[resourceId('Microsoft.Web/connections', 'azdefenderAlertsConnection')]",
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]": {}
+                }
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_an_Azure_Security_Center_Alert_is_created_or_triggered": {
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "callback_url": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['ascalert']['connectionId']"
+                                    }
+                                },
+                                "path": "/Microsoft.Security/Alert/subscribe"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Filter_array": {
+                            "runAfter": {
+                                "Var_ResourceGroup": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@triggerBody()?['Entities']",
+                                "where": "@equals(item()?['type'], 'ip')"
+                            }
+                        },
+                        "HTTPCreateSecurityRule": {
+                            "runAfter": {
+                                "Var_NSGName": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "type": "ManagedServiceIdentity",
+                                    "identity": "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                                },
+                                "body": {
+                                    "properties": {
+                                        "access": "Deny",
+                                        "destinationAddressPrefix": "Any",
+                                        "destinationPortRange": "*",
+                                        "direction": "Inbound",
+                                        "priority": 100,
+                                        "protocol": "*",
+                                        "sourceAddressPrefix": "@variables('varattackeraddress')",
+                                        "sourcePortRange": "*"
+                                    }
+                                },
+                                "method": "PUT",
+                                "uri": "https://management.azure.com/subscriptions/@{variables('subid')}/resourceGroups/@{variables('resourcegroup')}/providers/Microsoft.Network/networkSecurityGroups/@{variables('nsgname')}/securityRules/BruteforceAttackedIP?api-version=2020-05-01\n"
+                            }
+                        },
+                        "HTTPGetNSGs": {
+                            "runAfter": {
+                                "Var_NetworkName": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "type": "ManagedServiceIdentity",
+                                    "identity": "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                                },
+                                "headers": {
+                                    "api-version": "2020-05-01"
+                                },
+                                "method": "GET",
+                                "uri": "https://management.azure.com/subscriptions/@{variables('subid')}/resourceGroups/@{variables('resourcegroup')}/providers/Microsoft.Network/networkInterfaces/@{variables('networkname')}?api-version=2020-05-01"
+                            }
+                        },
+                        "HTTPGetVM": {
+                            "runAfter": {
+                                "Var_AttackerAddress": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Http",
+                            "inputs": {
+                                "authentication": {
+                                    "type": "ManagedServiceIdentity",
+                                    "identity": "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                                },
+                                "headers": {
+                                    "api-version": "2019-12-01"
+                                },
+                                "method": "GET",
+                                "uri": "https://management.azure.com/subscriptions/@{variables('subid')}/resourceGroups/@{variables('resourcegroup')}/providers/Microsoft.Compute/virtualMachines/@{variables('hostname')}?api-version=2019-12-01"
+                            }
+                        },
+                        "Send_an_email_(V2)": {
+                            "runAfter": {
+                                "HTTPCreateSecurityRule": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "Body": "<p><span style=\"font-size: 16px\"><strong>Azure Security Center has discovered a potential security threat in your environment. Details below:</strong></span><br>\n<br>\n<strong>Alert name: </strong>@{triggerBody()?['AlertDisplayName']}<br>\n<br>\n<strong>Attacked resource:</strong> @{triggerBody()?['CompromisedEntity']}<br>\n<br>\n<strong>Alert severity</strong>: @{triggerBody()?['Severity']}<br>\n<br>\n<strong>Detection time</strong>: @{triggerBody()?['TimeGenerated']}<br>\n<br>\n<strong>Description</strong>: @{triggerBody()?['Description']}<br>\n<br>\n<strong>Detected by</strong>: @{triggerBody()?['VendorName']}<br>\n<br>\n<strong>Alert ID:</strong> @{triggerBody()?['SystemAlertId']}<br>\n<br>\n<strong>Resource identifiers</strong>: @{variables('resourceid')}<br>\n<br>\n<strong>Link to view alert in Azure Security Center</strong>: @{triggerBody()?['AlertUri']}<br>\n<br>\n<strong>Attacker IPaddress</strong>: @{variables('varattackeraddress')}<br>\n<br>\n<strong>Network Security Group</strong>: &nbsp;@{variables('nsgname')}<br>\n&nbsp;<br>\n<span style=\"font-size: 16px\"><strong>Powered by Azure Security Center Logic Apps alert connector</strong></span></p>",
+                                    "Importance": "High",
+                                    "Subject": "Azure Security Center has blocked IPs in the NSG as a response to the BruteForce Attack",
+                                    "To": "[parameters('email')]"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['office365']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/v2/Mail"
+                            }
+                        },
+                        "Var_AttackerAddress": {
+                            "runAfter": {
+                                "Filter_array": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "varattackeraddress",
+                                        "type": "string",
+                                        "value": "@{body('Filter_array')[0]?['address']}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_Hostname": {
+                            "runAfter": {
+                                "Var_SubID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "hostname",
+                                        "type": "string",
+                                        "value": "@{variables('resourceidarray')?[8]}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_NSGName": {
+                            "runAfter": {
+                                "HTTPGetNSGs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "nsgname",
+                                        "type": "string",
+                                        "value": "@{split(body('httpgetnsgs')?['properties']?['networkSecurityGroup']?['id'],'/')?[8]}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_NetworkName": {
+                            "runAfter": {
+                                "HTTPGetVM": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "networkname",
+                                        "type": "string",
+                                        "value": "@{split(body('httpGetVM')?['properties']?['networkProfile']?['networkInterfaces']?[0]?['id'],'/')?[8]}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_ResourceGroup": {
+                            "runAfter": {
+                                "Var_Hostname": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "resourcegroup",
+                                        "type": "string",
+                                        "value": "@{variables('resourceidarray')?[4]}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_ResourceID": {
+                            "runAfter": {},
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "resourceid",
+                                        "type": "string",
+                                        "value": "@{triggerBody()?['Entities']?[0]?['AzureID']}"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_ResourceIDArray": {
+                            "runAfter": {
+                                "Var_ResourceID": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "resourceidarray",
+                                        "type": "array",
+                                        "value": "@split(variables('resourceid'),'/')"
+                                    }
+                                ]
+                            }
+                        },
+                        "Var_SubID": {
+                            "runAfter": {
+                                "Var_ResourceIDArray": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "subid",
+                                        "type": "string",
+                                        "value": "@{variables('resourceidarray')?[2]}"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "ascalert": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'azdefenderAlertsConnection')]",
+                                "connectionName": "azdefenderAlertsConnection",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/ascalert')]"
+                            },
+                            "office365": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                                "connectionName": "azdefenderOfficeConnection",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
+    "outputs": {
+        "vmDns": {
+            "type": "string",
+            "value": "[concat(variables('vmDns'), '.', resourceGroup().location, '.cloudapp.azure.com')]"
+        },
+        "fdDns": {
+            "type": "string",
+            "value": "[concat(variables('fdName'), '.azurefd.net')]"
+        },
+        "storageAccount": {
+            "type": "string",
+            "value": "[variables('storageName')]"
+        },
+        "keyVaultName": {
+            "type": "string",
+            "value": "[variables('kvName')]"
+        },
+        "sqlName": {
+            "type": "string",
+            "value": "[variables('sqlName')]"
+        }
+    }
+}
