@@ -1,11 +1,18 @@
 # Azure Defender demo
-This repo contains demo of Azure Defender features.
+This repo contains demo of Azure Defender features together with GitHub and Web Application Firewall.
+
+## Demos
+After you setup environment follow guides to demonstrate capabilities.
+
+Demonstrate Azure Defender infrastructure and container capabilities in [guide](./infraDemo.md).
+
+Demonstrate Azure Defender, WAF and github application protection capabilities in [guide](./appDemo.md).
 
 ## Setup
 Follow guide to setup your environment.
 
 ### Identities and environment
-Prepare identities and deploy environment.
+Prepare identities and deploy environment. In future version of demo this will be replaced with managed identity.
 
 ```powershell
 # Prepare AAD identities
@@ -123,7 +130,3 @@ Remove-AzADApplication -DisplayName tomasazdefender-sql-login -Force
 Remove-AzResourceGroup -Name azdefender -Force -AsJob
 ```
 
-## Demos
-Demonstrate Azure Defender infrastructure and container capabilities in [guide](./infraDemo).
-
-Demonstrate Azure Defender, WAF and github application protection capabilities in [guide](./appDemo).
