@@ -33,6 +33,7 @@ $currentUserId = $(Get-AzADUser -UserPrincipalName $(Get-AzContext).Account).Id
 
 # Deploy infrastructure
 New-AzResourceGroup -Name azdefender -Location westeurope
+
 New-AzResourceGroupDeployment -Name azdefender-infra `
     -ResourceGroupName azdefender `
     -TemplateFile .\armInfra.json `
@@ -50,11 +51,14 @@ Run this script on Windows server to install Edge and Ayure Data Studio.
 To be automated with VM extension in future.
 
 ```powershell
+# Create install folder
+mkdir c:\install
+
 # Download and install Edge
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient
 $WebClient.DownloadFile("https://tomuvstore.blob.core.windows.net/sdilna/MicrosoftEdgeSetupBeta.exe?sp=r&st=2020-10-27T12:10:03Z&se=2025-10-27T20:10:03Z&spr=https&sv=2019-12-12&sr=b&sig=z0BkrU7iK8s5OJHCM8BGZWYnjhUchrf%2FiLsmibIv2fI%3D","c:\install\edge.exe")
-c:\install\edge.exe /verysilent
+c:\install\edge.exe
 
 # Download and install Azure Data Studio
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 

@@ -53,7 +53,8 @@
         "bastionIpName": "[concat(parameters('prefix'), '-bastion-ip')]",
         "bastionName": "[concat(parameters('prefix'), '-bastion')]",
         "workspaceName": "[concat(parameters('prefix'), '-logs')]",
-        "adminUsername": "tomas"
+        "adminUsername": "tomas",
+        "kubeName": "[concat('aks-', uniqueString(resourceGroup().id))]"
     },
     "functions": [],
     "resources": [
@@ -716,12 +717,24 @@
                     }
                 },
                 {
+                    "apiVersion": "2020-02-02-preview",
+                    "type": "securityAlertPolicies",
+                    "name": "default",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
+                    ],
+                    "properties": {
+                        "state": "Enabled"
+                    }
+                },
+                {
                     "type": "vulnerabilityAssessments",
                     "apiVersion": "2018-06-01-preview",
                     "name": "Default",
                     "dependsOn": [
                         "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]",
-                        "[resourceId('Microsoft.Storage/StorageAccounts', variables('storageName'))]"
+                        "[resourceId('Microsoft.Storage/StorageAccounts', variables('storageName'))]",
+                        "[resourceId('Microsoft.Sql/servers/securityAlertPolicies', variables('sqlName'), 'default')]"
                     ],
                     "properties": {
                         "storageContainerPath": "[concat('https://', variables('storageName'), '.blob.core.windows.net/vulnerability-assessment/')]",
@@ -1767,6 +1780,51 @@
                     }
                 }
             }
+        },
+        {
+            "name": "[variables('kubeName')]",
+            "type": "Microsoft.ContainerService/managedClusters",
+            "apiVersion": "2020-02-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+            ],
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "dnsPrefix": "[variables('kubeName')]",
+                "enableRBAC": true,
+                "agentPoolProfiles": [
+                    {
+                        "name": "agentpool",
+                        "count": 1,
+                        "vmSize": "Standard_B2s",
+                        "osType": "Linux",
+                        "storageProfile": "ManagedDisks",
+                        "type": "VirtualMachineScaleSets",
+                        "mode": "System",
+                        "maxPods": 110,
+                        "availabilityZones": [
+                            "1",
+                            "2",
+                            "3"
+                        ]
+                    }
+                ],
+                "networkProfile": {
+                    "loadBalancerSku": "standard",
+                    "networkPlugin": "kubenet"
+                },
+                "addonProfiles": {
+                    "omsagent": {
+                        "enabled": true,
+                        "config": {
+                            "logAnalyticsWorkspaceResourceID": "[resourceId('Microsoft.OperationalInsights/workspaces', variables('workspaceName'))]"
+                        }
+                    }
+                }
+            }
         }
     ],
     "outputs": {
@@ -1789,6 +1847,10 @@
         "sqlName": {
             "type": "string",
             "value": "[variables('sqlName')]"
+        },
+        "kubeName": {
+            "type": "string",
+            "value": "[variables('kubeName')]"
         }
     }
 }

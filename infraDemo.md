@@ -113,6 +113,15 @@ Demonstrate blob malware automation:
 5. Show file has been deleted, yet is recoverable due to Soft Delete feature
 6. Show confirmation email
 
+### Kubernetes protection
+Open Azure Cloud Shell (bash) and install few resources that run privileged container, create new highly privileged role and create new cluster-role binding on admin.
 
+```powershell
+$resourceGroupName = "azdefender"
+Import-AzAksCredential -ResourceGroupName $resourceGroupName -Name $(Get-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name azdefender-infra).outputs.kubeName.Value -Force
 
+kubectl apply -f https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/kubernetes/resources.yaml 
+```
+
+After some time check alerts in Azure Defender.
 
