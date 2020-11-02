@@ -16,7 +16,7 @@ Check vulnerabilities found in VMs (by Qualys engine), container images, storage
     - OS level policies -> search for audit
     - Containers and Kubernetes policies -> search for container
 - Search for initiatives such as ISO 27001
-- Remidiations
+- Remediations
 - Blueprints
 
 ## Threat protection and automation
@@ -84,6 +84,30 @@ Use automation to isolate RDP access (Logic App with NSG). Before running this d
 3. Take action on alert by invoking isolateVm Logic App
 4. Check VM blade again for blocking rule on Networking
 5. You will also receive email message
+
+As preventive measure consider no direct access to machines at all, only privileged access workstation (jump server) such as Azure Bastion. Configure Network Security Group to enable RDP access only from Bastion service and demonstrate Bastion via browser on Azure portal.
+
+```powershell
+$resourceGroupName = "azdefender"
+$nsgName="azdefender-nsg"
+$bastionSourceRange="10.0.1.0/24"
+
+# Get the NSG resource
+$nsg = Get-AzNetworkSecurityGroup -Name $nsgName -ResourceGroupName $resourceGroupName
+
+# Add the inbound security rule to allow RDP from Bastion subnet
+$nsg | Add-AzNetworkSecurityRuleConfig -Name "AllowRdpFromBastion" -Description "Allow RDP from Bastion subnet" -Access Allow `
+    -Protocol Tcp -Direction Inbound -Priority 150 -SourceAddressPrefix $bastionSourceRange -SourcePortRange * `
+    -DestinationAddressPrefix * -DestinationPortRange 3389
+
+# Add the inbound security rule to deny all other RDP access
+$nsg | Add-AzNetworkSecurityRuleConfig -Name "DenyAllRdp" -Description "Deny all RDP access" -Access Deny `
+    -Protocol Tcp -Direction Inbound -Priority 151 -SourceAddressPrefix "*" -SourcePortRange * `
+    -DestinationAddressPrefix * -DestinationPortRange 3389
+
+# Update the NSG.
+$nsg | Set-AzNetworkSecurityGroup
+```
 
 ### Linux Host level protection
 Generate suspicious activity on Linux VM.
