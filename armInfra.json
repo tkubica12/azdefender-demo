@@ -1564,7 +1564,7 @@
                                     }
                                 },
                                 "method": "PUT",
-                                "uri": "https://management.azure.com/subscriptions/@{variables('subid')}/resourceGroups/@{variables('resourcegroup')}/providers/Microsoft.Network/networkSecurityGroups/@{variables('nsgname')}/securityRules/BruteforceAttackedIP?api-version=2020-05-01\n"
+                                "uri": "https://management.azure.com/subscriptions/@{variables('subid')}/resourceGroups/@{variables('resourcegroup')}/providers/Microsoft.Network/networkSecurityGroups/@{variables('nsgname')}/securityRules/BruteforceAttackerIP?api-version=2020-05-01\n"
                             }
                         },
                         "HTTPGetNSGs": {
@@ -1640,7 +1640,7 @@
                                     {
                                         "name": "varattackeraddress",
                                         "type": "string",
-                                        "value": "@{body('Filter_array')[0]?['address']}"
+                                        "value": "@{concat(split(triggerBody()?['ExtendedProperties']['attacker source IP'], ' ')[2], '/32')}"
                                     }
                                 ]
                             }
