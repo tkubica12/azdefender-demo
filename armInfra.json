@@ -1365,22 +1365,6 @@
                                         "uri": "@variables('BlobUri')"
                                     }
                                 },
-                                "HTTP": {
-                                    "runAfter": {
-                                        "Send_an_email_(V2)": [
-                                            "Succeeded"
-                                        ]
-                                    },
-                                    "type": "Http",
-                                    "inputs": {
-                                        "authentication": {
-                                            "audience": "https://management.azure.com",
-                                            "type": "ManagedServiceIdentity"
-                                        },
-                                        "method": "POST",
-                                        "uri": "https://management.azure.com/subscriptions/@{first(skip(split(triggerBody()?['AzureResourceId'],'/'),2))}/resourceGroups/@{first(skip(split(triggerBody()?['AzureResourceId'],'/'),4))}/providers/Microsoft.Security/locations/centralus/alerts/@{triggerBody()?['SystemAlertId']}/dismiss?api-version=2019-01-01"
-                                    }
-                                },
                                 "Send_an_email_(V2)": {
                                     "runAfter": {
                                         "Delete_Blob": [
