@@ -118,20 +118,20 @@ Describe solution with allowing database to do computations on data without admi
 ## Check application dependencies with GitHub Dependabot
 Check dependency tree
 
-https://github.com/tkubica12/sectest/network/dependencies
+https://github.com/tkubica12/azdefender-demo/network/dependencies
 
 Open Dependabot alerts
 
-https://github.com/tkubica12/sectest/network/alerts
+https://github.com/tkubica12/azdefender-demo/network/alerts
 
 Check Pull request has been automatically created to fix this.
 
-https://github.com/tkubica12/sectest/pulls
+https://github.com/tkubica12/azdefender-demo/pulls
 
 ## Analyze code for security issues with GitHub CodeQL
 Check found vulnerabilities
 
-https://github.com/tkubica12/sectest/security/code-scanning
+https://github.com/tkubica12/azdefender-demo/security/code-scanning
 
 ## Demonstrate using GitHub Codespaces for secure remote development
 For this demo you need to clone repo to your GitHub and create your own Codespace.
