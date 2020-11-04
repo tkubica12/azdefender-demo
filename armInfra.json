@@ -1538,7 +1538,7 @@
                                 "body": {
                                     "properties": {
                                         "access": "Deny",
-                                        "destinationAddressPrefix": "Any",
+                                        "destinationAddressPrefix": "*",
                                         "destinationPortRange": "*",
                                         "direction": "Inbound",
                                         "priority": 100,
