@@ -1271,6 +1271,29 @@
             }
         },
         {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2019-10-01-preview",
+            "name": "uploadMalwareToStorage",
+            "location": "[resourceGroup().location]",
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]": {
+                    }
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "onceOnly",
+                "AzCliVersion": "2.9.1",
+                "timeout": "PT30M",
+                "arguments": "[variables('registryName')]",
+                "scriptContent": "az acr import --name $1 --source docker.io/library/nginx:1.7.11 --image nginx:1.7.11",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "PT1H"
+            }
+        },
+        {
             "type": "Microsoft.Web/connections",
             "apiVersion": "2016-06-01",
             "name": "azdefenderOfficeConnection",

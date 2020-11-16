@@ -110,18 +110,6 @@ Set-AzStorageBlobContent -File EICAR.com -Container $containerName -Blob EICAR.c
 Remove-Item EICAR.com
 ```
 
-### Import vulnerable images
-Import vulnerable image to Azure Container Repository.
-
-To be automated with ARM deployment script in future.
-
-```bash
-az acr import \
-  --name acr5zfbmg5p6w444 \
-  --source docker.io/library/nginx:1.7.11 \
-  --image nginx:1.7.11
-```
-
 ### Cleanup environment.
 After demo destroy infrastructure and identities.
 
