@@ -949,7 +949,9 @@
             "name": "uploadMalwareToStorage",
             "location": "[resourceGroup().location]",
             "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]",
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, 'contributor'))]",
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, 'dataContributor'))]"
             ],
             "kind": "AzureCLI",
             "identity": {
@@ -1302,7 +1304,9 @@
             "name": "uploadVulnerableImage",
             "location": "[resourceGroup().location]",
             "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]",
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, 'contributor'))]",
+                "[resourceId('Microsoft.Authorization/roleAssignments', guid(resourceGroup().id, 'dataContributor'))]"
             ],
             "kind": "AzureCLI",
             "identity": {
