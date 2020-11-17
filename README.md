@@ -93,23 +93,6 @@ net stop was /y
 net start w3svc
 ```
 
-### Upload testing malware to storage account
-Example is using EICAR malware testing file. Since your computer will likely kill it, run following commands from Azure Cloud Shell (shell.azure.com).
-
-To be automated with ARM deployment script in future.
-
-```powershell
-$resourceGroupName = "azdefender"
-$containerName = "app-data"
-$storageAccountName = $(Get-AzResourceGroupDeployment -ResourceGroupName $resourceGroupName -Name azdefender-infra).outputs.storageAccount.Value
-$storageAccount = Get-AzStorageAccount -ResourceGroupName $resourceGroupName -Name $storageAccountName
-$ctx = $storageAccount.Context
-New-AzStorageContainer -Name $containerName -Context $ctx -Permission blob
-'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' | Out-File EICAR.com
-Set-AzStorageBlobContent -File EICAR.com -Container $containerName -Blob EICAR.com -Context $ctx 
-Remove-Item EICAR.com
-```
-
 ### Cleanup environment.
 After demo destroy infrastructure and identities.
 

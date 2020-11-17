@@ -944,6 +944,32 @@
             ]
         },
         {
+            "type": "Microsoft.Resources/deploymentScripts",
+            "apiVersion": "2019-10-01-preview",
+            "name": "uploadMalwareToStorage",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
+            "kind": "AzureCLI",
+            "identity": {
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                    "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]": {
+                    }
+                }
+            },
+            "properties": {
+                "forceUpdateTag": "onceOnly",
+                "AzCliVersion": "2.9.1",
+                "timeout": "PT30M",
+                "arguments": "[concat(resourceGroup().name, ', ', variables('storageName'))]",
+                "scriptContent": "az storage container create -n app-data --auth-mode login --account-name $2 -g $1; echo 'X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > ./EICAR.com; az storage blob upload --auth-mode login --account-name $2 --container-name app-data -f ./EICAR.com -n EICAR.com",
+                "cleanupPreference": "OnSuccess",
+                "retentionInterval": "PT1H"
+            }
+        },
+        {
             "name": "[concat('SQLAuditing[', variables('workspaceName'), ']')]",
             "type": "Microsoft.OperationsManagement/solutions",
             "apiVersion": "2015-11-01-preview",
@@ -1273,8 +1299,11 @@
         {
             "type": "Microsoft.Resources/deploymentScripts",
             "apiVersion": "2019-10-01-preview",
-            "name": "uploadMalwareToStorage",
+            "name": "uploadVulnerableImage",
             "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+            ],
             "kind": "AzureCLI",
             "identity": {
                 "type": "UserAssigned",
