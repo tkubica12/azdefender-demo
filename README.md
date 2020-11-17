@@ -102,6 +102,7 @@ Remove-AzADServicePrincipal -DisplayName tomasazdefender-sql-encrypt -Force
 Remove-AzADApplication -DisplayName tomasazdefender-sql-encrypt -Force
 Remove-AzADServicePrincipal -DisplayName tomasazdefender-sql-login -Force
 Remove-AzADApplication -DisplayName tomasazdefender-sql-login -Force
+Get-AzResourceLock -ResourceGroupName azdefender | Remove-AzResourceLock -Force
 Remove-AzResourceGroup -Name azdefender -Force -AsJob
 ```
 
