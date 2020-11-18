@@ -46,6 +46,7 @@ Install-Module -Name SqlServer -Force
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient
 $WebClient.DownloadFile("https://go.microsoft.com/fwlink/?linkid=2143496","C:\Users\tomas\sqlpackage.zip")
+cd C:\Users\tomas\
 Expand-Archive -LiteralPath 'C:\Users\tomas\sqlpackage.zip'
 
 # Download database backup
@@ -56,3 +57,6 @@ $WebClient.DownloadFile("https://raw.githubusercontent.com/tkubica12/azdefender-
 # Import database structure and data
 C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\scontosoclinic.bacpac
 
+# Restart IIS
+net stop was /y
+net start w3svc

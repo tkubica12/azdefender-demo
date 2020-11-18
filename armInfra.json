@@ -336,7 +336,7 @@
                             ]
                         },
                         "protectedSettings": {
-                            "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1 -sqlConnectionString ', '\"Server=tcp:',reference(variables('sqlName')).fullyQualifiedDomainName,',1433;Initial Catalog=',variables('dbName'),';Persist Security Info=False;User ID=',reference(variables('sqlName')).administratorLogin,';Password=',reference(variables('sqlName')).administratorLoginPassword,';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;\" -clientId ', parameters('spSqlEncryptClientId'), ' -clientSecret ', parameters('spSqlEncryptClientSecret'))]"
+                            "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1 -sqlConnectionString ', '\"Server=tcp:',reference(variables('sqlName')).fullyQualifiedDomainName,',1433;Initial Catalog=',variables('dbName'),';Persist Security Info=False;User ID=',reference(variables('sqlName')).administratorLogin,';Password=',parameters('password'),';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;\" -clientId ', parameters('spSqlEncryptClientId'), ' -clientSecret ', parameters('spSqlEncryptClientSecret'))]"
                         }
                     }
                 }

@@ -19,10 +19,10 @@ Prepare identities and deploy environment. In future version of demo this will b
 $spSqlEncrypt = New-AzADServicePrincipal -DisplayName tomasazdefender-sql-encrypt -SkipAssignment
 $spSqlLogin = New-AzADServicePrincipal -DisplayName tomasazdefender-sql-login -SkipAssignment
 
-$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlEncrypt.Secret)
-$spSqlEncryptSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-$BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlLogin.Secret)
-$spSqlLoginSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    # $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlEncrypt.Secret)
+    # $spSqlEncryptSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
+    # $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlLogin.Secret)
+    # $spSqlLoginSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 $spSqlEncryptAppId = $spSqlEncrypt.ApplicationId
 $spSqlLoginAppId = $spSqlLogin.ApplicationId
 $spSqlEncryptObjectId = $spSqlEncrypt.Id
@@ -40,7 +40,7 @@ New-AzResourceGroupDeployment -Name azdefender-infra `
     -adminObjectId $currentUserId `
     -spSqlEncryptObjectId $spSqlEncryptObjectId `
     -spSqlEncryptClientId $spSqlEncryptAppId `
-    -spSqlEncryptClientSecret $spSqlEncryptSecret `
+    -spSqlEncryptClientSecret $spSqlEncrypt.Secret `
     -email tokubica@microsoft.com
 
 # Import data to SQL
