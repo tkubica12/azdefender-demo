@@ -28,6 +28,18 @@
                 "description": "AAD object ID for identity used for SQL Always Encrypted"
             }
         },
+        "spSqlEncryptClientId": {
+            "type": "string",
+            "metadata": {
+                "description": "AAD client ID for identity used for SQL Always Encrypted"
+            }
+        },
+        "spSqlEncryptClientSecret": {
+            "type": "securestring",
+            "metadata": {
+                "description": "AAD client secret for identity used for SQL Always Encrypted"
+            }
+        },
         "email": {
             "type": "string",
             "metadata": {
@@ -54,8 +66,7 @@
         "bastionName": "[concat(parameters('prefix'), '-bastion')]",
         "workspaceName": "[concat(parameters('prefix'), '-logs')]",
         "adminUsername": "tomas",
-        "kubeName": "[concat('aks-', uniqueString(resourceGroup().id))]",
-        "sqlConnectionString": "[concat('Server=tcp:',reference(variables('sqlName')).fullyQualifiedDomainName,',1433;Initial Catalog=',variables('dbName')';Persist Security Info=False;User ID=',reference(variables('sqlName')).administratorLogin,';Password=',reference(variables('sqlName')).administratorLoginPassword,';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;')]"
+        "kubeName": "[concat('aks-', uniqueString(resourceGroup().id))]"
     },
     "functions": [],
     "resources": [
@@ -325,7 +336,7 @@
                             ]
                         },
                         "protectedSettings": {
-                            "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1 -sqlConnectionString ', '\"Server=tcp:',reference(variables('sqlName')).fullyQualifiedDomainName,',1433;Initial Catalog=',variables('dbName'),';Persist Security Info=False;User ID=',reference(variables('sqlName')).administratorLogin,';Password=',reference(variables('sqlName')).administratorLoginPassword,';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;\"')]"
+                            "commandToExecute": "[concat('powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1 -sqlConnectionString ', '\"Server=tcp:',reference(variables('sqlName')).fullyQualifiedDomainName,',1433;Initial Catalog=',variables('dbName'),';Persist Security Info=False;User ID=',reference(variables('sqlName')).administratorLogin,';Password=',reference(variables('sqlName')).administratorLoginPassword,';MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;\" -clientId ', parameters('spSqlEncryptClientId'), ' -clientSecret ', parameters('spSqlEncryptClientSecret'))]"
                         }
                     }
                 }

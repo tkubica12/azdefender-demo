@@ -39,6 +39,8 @@ New-AzResourceGroupDeployment -Name azdefender-infra `
     -TemplateFile .\armInfra.json `
     -adminObjectId $currentUserId `
     -spSqlEncryptObjectId $spSqlEncryptObjectId `
+    -spSqlEncryptClientId $spSqlEncryptAppId `
+    -spSqlEncryptClientSecret $spSqlEncryptSecret `
     -email tokubica@microsoft.com
 
 # Import data to SQL
@@ -54,9 +56,6 @@ Configure application credentials.
 # Configure service principal for accesing Key Vault for encryption (spSqlEncryptAppId and spSqlEncryptSecret)
 [System.Environment]::SetEnvironmentVariable('CLIENT_ID','myclientid',[System.EnvironmentVariableTarget]::Machine)
 [System.Environment]::SetEnvironmentVariable('CLIENT_SECRET','myclientsecret',[System.EnvironmentVariableTarget]::Machine)
-
-# Configure connection string
-Open web.config and modify DefaultConnection.
 
 # Restart IIS
 net stop was /y

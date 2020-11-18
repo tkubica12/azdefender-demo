@@ -1,5 +1,7 @@
 param (
-    [string]$sqlConnectionString
+    [string]$sqlConnectionString,
+    [string]$clientId,
+    [string]$clientSecret
 )
 
 # Download and install Edge
@@ -27,12 +29,18 @@ cd \inetpub\wwwroot\
 Expand-Archive -LiteralPath 'C:\Users\tomas\Desktop\app.zip'
 Copy-item -Force -Recurse .\app\* -Destination .
 
+# Modify Web.config
+(Get-Content \inetpub\wwwroot\Web.config).replace('<replaceWithConnectionString>', $sqlConnectionString) | Set-Content \inetpub\wwwroot\Web.config
+
+# Store identity information for AlwaysEncrypted
+[System.Environment]::SetEnvironmentVariable('CLIENT_ID', $clientId,[System.EnvironmentVariableTarget]::Machine)
+[System.Environment]::SetEnvironmentVariable('CLIENT_SECRET', $clientSecret,[System.EnvironmentVariableTarget]::Machine)
+
 # Install PowerShell modules
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 Install-Module -Name Az -Force
 Install-Module -Name SqlServer -Force
-
 
 # Download sqlpackage
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
@@ -47,3 +55,4 @@ $WebClient.DownloadFile("https://raw.githubusercontent.com/tkubica12/azdefender-
 
 # Import database structure and data
 C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\scontosoclinic.bacpac
+
