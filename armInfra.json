@@ -304,6 +304,27 @@
                         "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
                         "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'Microsoft.EnterpriseCloud.Monitoring')]"
                     ]
+                },
+                {
+                    "type": "extensions",
+                    "apiVersion": "2019-12-01",
+                    "name": "install",
+                    "location": "[resourceGroup().location]",
+                    "dependsOn": [
+                        "[concat('Microsoft.Compute/virtualMachines/',variables('vmName'))]"
+                    ],
+                    "properties": {
+                        "publisher": "Microsoft.Compute",
+                        "type": "CustomScriptExtension",
+                        "typeHandlerVersion": "1.7",
+                        "autoUpgradeMinorVersion": true,
+                        "settings": {
+                            "fileUris": [
+                                "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/scripts/prepareWindows.ps1"
+                            ],
+                            "commandToExecute": "powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1"
+                        }
+                    }
                 }
             ]
         },
@@ -1267,7 +1288,8 @@
             "apiVersion": "2018-09-01-preview",
             "name": "[guid(resourceGroup().id, 'contributor')]",
             "dependsOn": [
-                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]",
+                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'b24988ac-6180-42a0-ab88-20f7382dd24c')]",
@@ -1279,7 +1301,8 @@
             "apiVersion": "2018-09-01-preview",
             "name": "[guid(resourceGroup().id, 'dataContributor')]",
             "dependsOn": [
-                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]"
+                "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'automationIdentity')]",
+                "[resourceId('Microsoft.Compute/virtualMachines', variables('vmName'))]"
             ],
             "properties": {
                 "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",

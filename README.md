@@ -46,41 +46,11 @@ New-AzResourceGroupDeployment -Name azdefender-dataimport -ResourceGroupName azd
 ```
 
 ### Install script for Windows Server
-Run this script on Windows server to install Edge and Ayure Data Studio.
+ARM template automatically downloads Edge and Azure Data Studio installation files. Go to desktop and install. Also IIS is installed and application copied.
 
-To be automated with VM extension in future.
+Configure application credentials.
 
 ```powershell
-# Create install folder
-mkdir c:\install
-
-# Download and install Edge
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
-$WebClient = New-Object System.Net.WebClient
-$WebClient.DownloadFile("https://tomuvstore.blob.core.windows.net/sdilna/MicrosoftEdgeSetupBeta.exe?sp=r&st=2020-10-27T12:10:03Z&se=2025-10-27T20:10:03Z&spr=https&sv=2019-12-12&sr=b&sig=z0BkrU7iK8s5OJHCM8BGZWYnjhUchrf%2FiLsmibIv2fI%3D","c:\install\edge.exe")
-c:\install\edge.exe
-
-# Download and install Azure Data Studio
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
-$WebClient = New-Object System.Net.WebClient
-$WebClient.DownloadFile("https://go.microsoft.com/fwlink/?linkid=2145989","c:\install\ads.exe")
-c:\install\ads.exe /verysilent
-
-# Install IIS
-Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServerRole
-Enable-WindowsOptionalFeature -Online -FeatureName IIS-WebServer
-Enable-WindowsOptionalFeature -Online -FeatureName IIS-CommonHttpFeatures
-Enable-WindowsOptionalFeature -Online -FeatureName IIS-WindowsAuthentication
-Install-WindowsFeature Web-Asp-Net45
-
-# Download and install app
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
-$WebClient = New-Object System.Net.WebClient
-$WebClient.DownloadFile("https://tomuvstore.blob.core.windows.net/public/app.zip","c:\install\app.zip")
-cd \inetpub\wwwroot\
-Expand-Archive -LiteralPath 'c:\install\app.zip'
-Copy-item -Force -Recurse .\app\* -Destination .
-
 # Configure service principal for accesing Key Vault for encryption (spSqlEncryptAppId and spSqlEncryptSecret)
 [System.Environment]::SetEnvironmentVariable('CLIENT_ID','myclientid',[System.EnvironmentVariableTarget]::Machine)
 [System.Environment]::SetEnvironmentVariable('CLIENT_SECRET','myclientsecret',[System.EnvironmentVariableTarget]::Machine)
