@@ -1,3 +1,7 @@
+param (
+    [string]$sqlConnectionString
+)
+
 # Download and install Edge
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient
@@ -28,3 +32,18 @@ Copy-item -Force -Recurse .\app\* -Destination .
 Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
 Install-Module -Name Az -Force
 Install-Module -Name SqlServer -Force
+
+
+# Download sqlpackage
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
+$WebClient = New-Object System.Net.WebClient
+$WebClient.DownloadFile("https://go.microsoft.com/fwlink/?linkid=2143496","C:\Users\tomas\sqlpackage.zip")
+Expand-Archive -LiteralPath 'C:\Users\tomas\sqlpackage.zip'
+
+# Download database backup
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
+$WebClient = New-Object System.Net.WebClient
+$WebClient.DownloadFile("https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/contosoclinic.bacpac","C:\Users\tomas\scontosoclinic.bacpac")
+
+# Import database structure and data
+C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\scontosoclinic.bacpac
