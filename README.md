@@ -48,19 +48,9 @@ New-AzResourceGroupDeployment -Name azdefender-dataimport -ResourceGroupName azd
 ```
 
 ### Install script for Windows Server
-ARM template automatically downloads Edge and Azure Data Studio installation files. Go to desktop and install. Also IIS is installed and application copied.
+ARM template automatically downloads Edge and Azure Data Studio installation files. Go to desktop and install. 
 
-Configure application credentials.
-
-```powershell
-# Configure service principal for accesing Key Vault for encryption (spSqlEncryptAppId and spSqlEncryptSecret)
-[System.Environment]::SetEnvironmentVariable('CLIENT_ID','myclientid',[System.EnvironmentVariableTarget]::Machine)
-[System.Environment]::SetEnvironmentVariable('CLIENT_SECRET','myclientsecret',[System.EnvironmentVariableTarget]::Machine)
-
-# Restart IIS
-net stop was /y
-net start w3svc
-```
+IIS and application is installed and configured by ARM template script automatically.
 
 ### Cleanup environment.
 After demo destroy infrastructure and identities.

