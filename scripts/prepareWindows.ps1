@@ -39,7 +39,7 @@ Install-Module -Name SqlServer -Force
 # Import database structure and data
 cd C:\Users\tomas\
 Expand-Archive -LiteralPath 'C:\Users\tomas\sqlpackage-win7-x64-en-US-15.0.4897.1.zip'
-C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\scontosoclinic.bacpac
+C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\contosoclinic.bacpac
 
 # Restart IIS
 net stop was /y

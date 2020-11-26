@@ -324,9 +324,7 @@
                     "name": "install",
                     "location": "[resourceGroup().location]",
                     "dependsOn": [
-                        "[concat('Microsoft.Compute/virtualMachines/',variables('vmName'))]",
-                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'Microsoft.EnterpriseCloud.Monitoring')]",
-                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'DAExtension')]"
+                        "[concat('Microsoft.Compute/virtualMachines/',variables('vmName'))]"
                     ],
                     "properties": {
                         "publisher": "Microsoft.Compute",
