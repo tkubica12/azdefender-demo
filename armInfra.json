@@ -279,7 +279,8 @@
                     "apiVersion": "2015-06-15",
                     "location": "[resourceGroup().location]",
                     "dependsOn": [
-                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'install')]"
                     ],
                     "properties": {
                         "publisher": "Microsoft.EnterpriseCloud.Monitoring",
@@ -300,7 +301,8 @@
                     "apiVersion": "2015-06-15",
                     "location": "[resourceGroup().location]",
                     "dependsOn": [
-                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]"
+                        "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'install')]"
                     ],
                     "properties": {
                         "publisher": "Microsoft.Azure.Monitoring.DependencyAgent",
@@ -315,7 +317,8 @@
                     "apiVersion": "2015-06-01-preview",
                     "dependsOn": [
                         "[concat('Microsoft.Compute/virtualMachines/', variables('vmName'))]",
-                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'Microsoft.EnterpriseCloud.Monitoring')]"
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'Microsoft.EnterpriseCloud.Monitoring')]",
+                        "[resourceId('Microsoft.Compute/virtualMachines/extensions', variables('vmName'), 'install')]"
                     ]
                 },
                 {

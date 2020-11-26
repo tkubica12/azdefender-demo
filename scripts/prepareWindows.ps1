@@ -24,7 +24,7 @@ Install-WindowsFeature Web-Asp-Net45
 # Download and install app
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient
-$WebClient.DownloadFile("https://tomuvstore.blob.core.windows.net/public/app.zip","C:\Users\tomas\Desktop\app.zip")
+$WebClient.DownloadFile("https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/app.zip","C:\Users\tomas\Desktop\app.zip")
 cd \inetpub\wwwroot\
 Expand-Archive -LiteralPath 'C:\Users\tomas\Desktop\app.zip'
 Copy-item -Force -Recurse .\app\* -Destination .
