@@ -42,9 +42,6 @@ New-AzResourceGroupDeployment -Name azdefender-infra `
     -spSqlEncryptClientId $spSqlEncryptAppId `
     -spSqlEncryptClientSecret $spSqlEncrypt.Secret `
     -email tokubica@microsoft.com
-
-# Import data to SQL
-New-AzResourceGroupDeployment -Name azdefender-dataimport -ResourceGroupName azdefender -TemplateFile .\armSqlDataImport.json
 ```
 
 ### Install script for Windows Server
