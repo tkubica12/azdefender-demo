@@ -10,6 +10,7 @@ Copy-Item MicrosoftEdgeSetupBeta.exe C:\install\
 Copy-Item azuredatastudio-windows-user-setup-1.23.0.exe C:\install\
 Copy-Item app.zip C:\install\
 Copy-Item sqlpackage-win7-x64-en-US-15.0.4897.1.zip C:\install\
+Copy-Item contosoclinic.bacpac C:\install\
 
 
 # Install IIS
