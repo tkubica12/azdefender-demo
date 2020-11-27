@@ -11,6 +11,7 @@ Copy-Item azuredatastudio-windows-user-setup-1.23.0.exe C:\install\
 Copy-Item app.zip C:\install\
 Copy-Item sqlpackage-win7-x64-en-US-15.0.4897.1.zip C:\install\
 Copy-Item contosoclinic.bacpac C:\install\
+Copy-Item MsSqlCmdLnUtils.msi C:\install\
 
 
 # Install IIS
@@ -39,9 +40,9 @@ Install-Module -Name Az -Force
 Install-Module -Name SqlServer -Force
 
 # Import database structure and data
-cd C:\Users\tomas\
+cd C:\install
 Expand-Archive -LiteralPath 'C:\install\sqlpackage-win7-x64-en-US-15.0.4897.1.zip'
-C:\install\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\install\contosoclinic.bacpac
+C:\install\sqlpackage-win7-x64-en-US-15.0.4897.1\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\install\contosoclinic.bacpac
 
 # Restart IIS
 net stop was /y
