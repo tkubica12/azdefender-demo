@@ -5,10 +5,11 @@ param (
 )
 
 # Copy install files to proper locations
-Copy-Item MicrosoftEdgeSetupBeta.exe C:\Users\tomas\Desktop\
-Copy-Item azuredatastudio-windows-user-setup-1.23.0.exe C:\Users\tomas\Desktop\
-Copy-Item app.zip C:\Users\tomas\Desktop\
-Copy-Item sqlpackage-win7-x64-en-US-15.0.4897.1.zip C:\Users\tomas\
+New-Item -Path "c:\" -Name "install" -ItemType "directory"
+Copy-Item MicrosoftEdgeSetupBeta.exe C:\install\
+Copy-Item azuredatastudio-windows-user-setup-1.23.0.exe C:\install\
+Copy-Item app.zip C:\install\
+Copy-Item sqlpackage-win7-x64-en-US-15.0.4897.1.zip C:\install\
 
 
 # Install IIS
@@ -20,7 +21,7 @@ Install-WindowsFeature Web-Asp-Net45
 
 # Install app
 cd C:\inetpub\wwwroot\
-Expand-Archive -LiteralPath 'C:\Users\tomas\Desktop\app.zip'
+Expand-Archive -LiteralPath 'C:\install\app.zip'
 Copy-item -Force -Recurse .\app\* -Destination .
 
 # Modify Web.config
@@ -38,8 +39,8 @@ Install-Module -Name SqlServer -Force
 
 # Import database structure and data
 cd C:\Users\tomas\
-Expand-Archive -LiteralPath 'C:\Users\tomas\sqlpackage-win7-x64-en-US-15.0.4897.1.zip'
-C:\Users\tomas\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\Users\tomas\contosoclinic.bacpac
+Expand-Archive -LiteralPath 'C:\install\sqlpackage-win7-x64-en-US-15.0.4897.1.zip'
+C:\install\sqlpackage\sqlpackage.exe /Action:Import /tcs:$sqlConnectionString /sf:C:\install\contosoclinic.bacpac
 
 # Restart IIS
 net stop was /y

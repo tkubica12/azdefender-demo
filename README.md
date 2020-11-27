@@ -38,16 +38,12 @@ New-AzResourceGroupDeployment -Name azdefender-infra `
     -ResourceGroupName azdefender `
     -TemplateFile .\armInfra.json `
     -adminObjectId $currentUserId `
+    -adminUpn $currentUserUPN `
     -spSqlEncryptObjectId $spSqlEncryptObjectId `
     -spSqlEncryptClientId $spSqlEncryptAppId `
     -spSqlEncryptClientSecret $spSqlEncrypt.Secret `
     -email tokubica@microsoft.com
 ```
-
-### Install script for Windows Server
-ARM template automatically downloads Edge and Azure Data Studio installation files. Go to desktop and install. 
-
-IIS and application is installed and configured by ARM template script automatically.
 
 ### Cleanup environment.
 After demo destroy infrastructure and identities.

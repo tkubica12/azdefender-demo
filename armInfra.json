@@ -22,6 +22,12 @@
                 "description": "AAD object ID for admin user identity"
             }
         },
+        "adminUpn": {
+            "type": "string",
+            "metadata": {
+                "description": "AAD UPN for admin user identity"
+            }
+        },
         "spSqlEncryptObjectId": {
             "type": "string",
             "metadata": {
@@ -824,6 +830,20 @@
                             "emails": []
                         }
                     }
+                },
+                {
+                    "type": "administrators",
+                    "name": "ActiveDirectory",
+                    "apiVersion": "2019-06-01-preview",
+                     "dependsOn": [
+                        "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
+                    ],
+                    "properties": {
+                        "administratorType": "ActiveDirectory",
+                        "login": "[parameters('adminUpn')]",
+                        "sid": "[parameters('adminObjectId')]",
+                        "tenantId": "[subscription().tenantId]"
+                    }
                 }
             ]
         },
@@ -1338,6 +1358,12 @@
         },
         {
             "name": "automationIdentity",
+            "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+            "apiVersion": "2018-11-30",
+            "location": "[resourceGroup().location]"
+        },
+        {
+            "name": "sqlLoginIdentity",
             "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
             "apiVersion": "2018-11-30",
             "location": "[resourceGroup().location]"
