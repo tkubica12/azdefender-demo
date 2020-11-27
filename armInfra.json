@@ -342,12 +342,8 @@
                         "settings": {
                             "fileUris": [
                                 "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/scripts/prepareWindows.ps1",
-                                "https://tomuvstore.blob.core.windows.net/sdilna/MicrosoftEdgeSetupBeta.exe?sp=r&st=2020-10-27T12:10:03Z&se=2025-10-27T20:10:03Z&spr=https&sv=2019-12-12&sr=b&sig=z0BkrU7iK8s5OJHCM8BGZWYnjhUchrf%2FiLsmibIv2fI%3D",
                                 "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/app.zip",
-                                "https://sqlopsbuilds.azureedge.net/stable/d296b6397e0acfddc57e9085e736e084969cdaeb/azuredatastudio-windows-user-setup-1.23.0.exe",
-                                "https://download.microsoft.com/download/c/d/a/cda258c2-09d3-40e0-b69e-e62ae1e0acaa/sqlpackage-win7-x64-en-US-15.0.4897.1.zip",
-                                "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/contosoclinic.bacpac",
-                                "https://download.microsoft.com/download/0/e/6/0e63d835-3513-45a0-9cf0-0bc75fb4269e/EN/x64/MsSqlCmdLnUtils.msi"
+                                "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/contosoclinic.bacpac"
                             ]
                         },
                         "protectedSettings": {
@@ -843,8 +839,8 @@
                     ],
                     "properties": {
                         "administratorType": "ActiveDirectory",
-                        "login": "[parameters('adminUpn')]",
-                        "sid": "[parameters('adminObjectId')]",
+                        "login": "sqlLoginIdentity",
+                        "sid": "[reference('sqlLoginIdentity').principalId]",
                         "tenantId": "[subscription().tenantId]"
                     }
                 }

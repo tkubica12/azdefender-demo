@@ -25,7 +25,6 @@ C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Micr
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.Azure.KeyVault.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.CodeDom.Providers.DotNetCompilerPlatform.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.IdentityModel.Clients.ActiveDirectory.dll
-C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.IdentityModel.Clients.ActiveDirectory.WindowsForms.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.Owin.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.Owin.Host.SystemWeb.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.Owin.Security.Cookies.dll
@@ -110,3 +109,5 @@ C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\pt-B
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\ru\Microsoft.SqlServer.Management.AlwaysEncrypted.AzureKeyVaultProvider.resources.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\zh-Hans\Microsoft.SqlServer.Management.AlwaysEncrypted.AzureKeyVaultProvider.resources.dll
 C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\zh-Hant\Microsoft.SqlServer.Management.AlwaysEncrypted.AzureKeyVaultProvider.resources.dll
+C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.Azure.Services.AppAuthentication.dll
+C:\Users\tokubica\OneDrive - Microsoft\git\cyber-demo\src\ContosoClinic\bin\Microsoft.IdentityModel.Clients.ActiveDirectory.pdb
