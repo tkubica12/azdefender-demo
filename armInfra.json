@@ -246,7 +246,6 @@
             "identity": {
                 "type": "userAssigned",
                 "userAssignedIdentities": {
-                    "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'myVmIdentity')]": {},
                     "[resourceID('Microsoft.ManagedIdentity/userAssignedIdentities', 'sqlLoginIdentity')]": {}
                 }
             },

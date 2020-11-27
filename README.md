@@ -17,16 +17,11 @@ Prepare identities and deploy environment. In future version of demo this will b
 ```powershell
 # Prepare AAD identities
 $spSqlEncrypt = New-AzADServicePrincipal -DisplayName tomasazdefender-sql-encrypt -SkipAssignment
-$spSqlLogin = New-AzADServicePrincipal -DisplayName tomasazdefender-sql-login -SkipAssignment
 
     # $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlEncrypt.Secret)
     # $spSqlEncryptSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
-    # $BSTR = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($spSqlLogin.Secret)
-    # $spSqlLoginSecret = [System.Runtime.InteropServices.Marshal]::PtrToStringAuto($BSTR)
 $spSqlEncryptAppId = $spSqlEncrypt.ApplicationId
-$spSqlLoginAppId = $spSqlLogin.ApplicationId
 $spSqlEncryptObjectId = $spSqlEncrypt.Id
-$spSqlLoginObjectId = $spSqlLogin.Id
 
 $currentUserUPN = $(Get-AzContext).Account
 $currentUserId = $(Get-AzADUser -UserPrincipalName $(Get-AzContext).Account).Id
