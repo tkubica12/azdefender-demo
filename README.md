@@ -27,7 +27,7 @@ $currentUserUPN = $(Get-AzContext).Account
 $currentUserId = $(Get-AzADUser -UserPrincipalName $(Get-AzContext).Account).Id
 
 # Deploy infrastructure
-New-AzResourceGroup -Name azdefender -Location westeurope
+New-AzResourceGroup -Name azdefender -Location westeurope -Tag @{Owner="tokubica@microsoft.com"}
 
 New-AzResourceGroupDeployment -Name azdefender-infra `
     -ResourceGroupName azdefender `
@@ -47,8 +47,6 @@ After demo destroy infrastructure and identities.
 # Cleanup
 Remove-AzADServicePrincipal -DisplayName tomasazdefender-sql-encrypt -Force
 Remove-AzADApplication -DisplayName tomasazdefender-sql-encrypt -Force
-Remove-AzADServicePrincipal -DisplayName tomasazdefender-sql-login -Force
-Remove-AzADApplication -DisplayName tomasazdefender-sql-login -Force
 Get-AzResourceLock -ResourceGroupName azdefender | Remove-AzResourceLock -Force
 Remove-AzResourceGroup -Name azdefender -Force -AsJob
 ```

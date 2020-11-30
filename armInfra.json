@@ -833,7 +833,7 @@
                     "type": "administrators",
                     "name": "ActiveDirectory",
                     "apiVersion": "2019-06-01-preview",
-                     "dependsOn": [
+                    "dependsOn": [
                         "[resourceId('Microsoft.Sql/servers', variables('sqlName'))]"
                     ],
                     "properties": {
@@ -1447,14 +1447,178 @@
         },
         {
             "type": "Microsoft.Web/connections",
-            "apiVersion": "2016-06-01",
             "name": "azdefenderAlertsConnection",
+            "apiVersion": "2016-06-01",
             "location": "[resourceGroup().location]",
             "properties": {
                 "displayName": "[parameters('email')]",
                 "customParameterValues": {},
                 "api": {
                     "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/ascalert')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "name": "arm",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "[parameters('email')]",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/arm')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/connections",
+            "name": "ascassessment",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "kind": "V1",
+            "properties": {
+                "displayName": "Security Center Recommendation",
+                "customParameterValues": {},
+                "api": {
+                    "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/ascassessment')]"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Logic/IntegrationAccounts",
+            "name": "integrationAccount",
+            "apiVersion": "2016-06-01",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Basic"
+            },
+            "properties": {}
+        },
+        {
+            "name": "ascRecommendationInformUser",
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Logic/IntegrationAccounts', 'integrationAccount')]",
+                "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]"
+            ],
+            "properties": {
+                "state": "Enabled",
+                "integrationAccount": {
+                    "id": "[resourceId('Microsoft.Logic/IntegrationAccounts', 'integrationAccount')]"
+                },
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        }
+                    },
+                    "triggers": {
+                        "When_an_Azure_Security_Center_Recommendation_is_created_or_triggered": {
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "callback_url": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['ascassessment']['connectionId']"
+                                    }
+                                },
+                                "path": "/Microsoft.Security/Assessment/subscribe"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "Parse_Resource_Group": {
+                            "runAfter": {},
+                            "type": "JavaScriptCode",
+                            "inputs": {
+                                "code": "var text = workflowContext.trigger.outputs.body.properties.resourceDetails.id;\r\n\r\nvar match = text.match(/resourcegroups\\/([^\\/]*)/);\r\n\r\nreturn match[1];"
+                            }
+                        },
+                        "Parse_Subscription": {
+                            "runAfter": {
+                                "Parse_Resource_Group": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "JavaScriptCode",
+                            "inputs": {
+                                "code": "var text = workflowContext.trigger.outputs.body.properties.resourceDetails.id;\r\n\r\nvar match = text.match(/subscriptions\\/([^\\/]*)/);\r\n\r\nreturn match[1];"
+                            }
+                        },
+                        "Read_a_resource_group": {
+                            "runAfter": {
+                                "Parse_Subscription": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['arm']['connectionId']"
+                                    }
+                                },
+                                "method": "get",
+                                "path": "/subscriptions/@{encodeURIComponent(outputs('Parse_Subscription')?['body'])}/resourcegroups/@{encodeURIComponent(outputs('Parse_Resource_Group')?['body'])}",
+                                "queries": {
+                                    "x-ms-api-version": "2016-06-01"
+                                }
+                            }
+                        },
+                        "Send_an_email_(V2)": {
+                            "runAfter": {
+                                "Read_a_resource_group": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "Body": "<p>You have been identified as owner of resource @{triggerBody()?['properties']?['resourceDetails']?['id']}<br>\n<br>\n<strong>Recommendation is:</strong><br>\n@{triggerBody()?['properties']?['metadata']?['displayName']}<br>\n<br>\n@{triggerBody()?['properties']?['metadata']?['description']}<br>\n<br>\n<strong>To remediate:</strong><br>\n@{triggerBody()?['properties']?['metadata']?['remediationDescription']}</p>",
+                                    "Subject": "Security Recommendation",
+                                    "To": "@{body('Read_a_resource_group')?['tags']['Owner']}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azdefenderOfficeConnection']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/v2/Mail"
+                            }
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "arm": {
+                                "connectionId": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/resourceGroups/azdefender/providers/Microsoft.Web/connections/arm",
+                                "connectionName": "arm",
+                                "id": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/providers/Microsoft.Web/locations/westeurope/managedApis/arm"
+                            },
+                            "ascassessment": {
+                                "connectionId": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/resourceGroups/azdefender/providers/Microsoft.Web/connections/ascassessment",
+                                "connectionName": "ascassessment",
+                                "id": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/providers/Microsoft.Web/locations/westeurope/managedApis/ascassessment"
+                            },
+                            "office365": {
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                                "connectionName": "azdefenderOfficeConnection",
+                                "id": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Web/locations/', resourceGroup().location, '/managedApis/office365')]"
+                            }
+                        }
+                    }
                 }
             }
         },
