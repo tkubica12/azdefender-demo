@@ -374,7 +374,8 @@
                 "osProfile": {
                     "computerName": "lin1-vm",
                     "adminUsername": "[variables('adminUsername')]",
-                    "adminPassword": "[parameters('password')]"
+                    "adminPassword": "[parameters('password')]",
+                    "customData": "I2Nsb3VkLWNvbmZpZwpwYWNrYWdlczoKLSB1YnVudHUtZGVza3RvcAotIG5tYXAKLSBvcGVudnBuCi0gZnJlZXJkcC14MTEKLSB0aWdlcnZuYy12aWV3ZXIKLSBweXRob24zCi0gcHl0aG9uMy1waXAKcnVuY21kOgogLSBta2RpciAvc2NyaXB0cwogLSBjZCAvc2NyaXB0cwogLSB3Z2V0IGh0dHBzOi8vcmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbS90a3ViaWNhMTIvYXpkZWZlbmRlci1kZW1vL21hc3Rlci9zY3JpcHRzL2luZnJhQXR0YWNrU2ltdWxhdGlvbkZyb21MaW51eC5zaA=="
                 },
                 "storageProfile": {
                     "imageReference": {

@@ -1,0 +1,13 @@
+#cloud-config
+packages:
+- ubuntu-desktop
+- nmap
+- openvpn
+- freerdp-x11
+- tigervnc-viewer
+- python3
+- python3-pip
+runcmd:
+ - mkdir /scripts
+ - cd /scripts
+ - wget https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/scripts/infraAttackSimulationFromLinux.sh

