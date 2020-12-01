@@ -1504,7 +1504,9 @@
             "location": "[resourceGroup().location]",
             "dependsOn": [
                 "[resourceId('Microsoft.Logic/IntegrationAccounts', 'integrationAccount')]",
-                "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]"
+                "[resourceId('Microsoft.Web/connections', 'azdefenderOfficeConnection')]",
+                "[resourceId('Microsoft.Web/connections', 'ascassessment')]",
+                "[resourceId('Microsoft.Web/connections', 'arm')]"
             ],
             "properties": {
                 "state": "Enabled",
@@ -1604,12 +1606,12 @@
                     "$connections": {
                         "value": {
                             "arm": {
-                                "connectionId": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/resourceGroups/azdefender/providers/Microsoft.Web/connections/arm",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'arm')]",
                                 "connectionName": "arm",
                                 "id": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/providers/Microsoft.Web/locations/westeurope/managedApis/arm"
                             },
                             "ascassessment": {
-                                "connectionId": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/resourceGroups/azdefender/providers/Microsoft.Web/connections/ascassessment",
+                                "connectionId": "[resourceId('Microsoft.Web/connections', 'ascassessment')]",
                                 "connectionName": "ascassessment",
                                 "id": "/subscriptions/a0f4a733-4fce-4d49-b8a8-d30541fc1b45/providers/Microsoft.Web/locations/westeurope/managedApis/ascassessment"
                             },
