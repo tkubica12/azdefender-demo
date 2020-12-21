@@ -40,6 +40,14 @@ New-AzResourceGroupDeployment -Name azdefender-infra `
     -email tokubica@microsoft.com
 ```
 
+**Bicep preview**
+Infastructure template is now also in infra folder using Bicep language. At this point it is equivalent to armInfra.json template, but moving forward I will do changes in Bicep version only.
+
+To compile Bicep template to ARM template install Bicep CLI and run:
+```powershell
+bicep compile main.bicep
+```
+
 ### Cleanup environment.
 After demo destroy infrastructure and identities.
 

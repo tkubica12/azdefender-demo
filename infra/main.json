@@ -1,0 +1,503 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]"
+    },
+    "prefix": {
+      "type": "string",
+      "defaultValue": "azdefender"
+    },
+    "password": {
+      "type": "secureString"
+    },
+    "spSqlEncryptClientId": {
+      "type": "string"
+    },
+    "spSqlEncryptClientSecret": {
+      "type": "secureString"
+    }
+  },
+  "functions": [],
+  "variables": {
+    "adminUsername": "tomas",
+    "dbName": "sqldb"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Network/virtualnetworks",
+      "apiVersion": "2015-05-01-preview",
+      "name": "mynet",
+      "location": "[parameters('location')]",
+      "properties": {
+        "addressSpace": {
+          "addressPrefixes": [
+            "10.0.0.0/16"
+          ]
+        },
+        "subnets": [
+          {
+            "name": "apps",
+            "properties": {
+              "addressPrefix": "10.0.0.0/24"
+            }
+          },
+          {
+            "name": "AzureBastionSubnet",
+            "properties": {
+              "addressPrefix": "10.0.1.0/24"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-bastion-ip', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "publicIPAllocationMethod": "Static"
+      }
+    },
+    {
+      "type": "Microsoft.Network/bastionHosts",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-bastion', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "IpConf",
+            "properties": {
+              "subnet": {
+                "id": "[format('{0}/subnets/AzureBastionSubnet', resourceId('Microsoft.Network/virtualnetworks', 'mynet'))]"
+              },
+              "publicIPAddress": {
+                "id": "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-bastion-ip', parameters('prefix')))]"
+              }
+            }
+          }
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/publicIPAddresses', format('{0}-bastion-ip', parameters('prefix')))]",
+        "[resourceId('Microsoft.Network/virtualnetworks', 'mynet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "vmIdentity",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "automationIdentity",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2018-11-30",
+      "name": "sqlLoginIdentity",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2020-04-01-preview",
+      "name": "[guid(resourceGroup().id, 'dataContributor')]",
+      "properties": {
+        "roleDefinitionId": "[concat('/subscriptions/', subscription().subscriptionId, '/providers/Microsoft.Authorization/roleDefinitions/', 'ba92f5b4-2d11-453d-a403-e96b0029c9fe')]",
+        "principalId": "[reference('automationIdentity').principalId]"
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkSecurityGroups",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-nsg', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "securityRules": [
+          {
+            "name": "web",
+            "properties": {
+              "priority": 200,
+              "sourceAddressPrefix": "*",
+              "protocol": "Tcp",
+              "destinationPortRanges": [
+                "80",
+                "443"
+              ],
+              "access": "Allow",
+              "direction": "Inbound",
+              "sourcePortRange": "*",
+              "destinationAddressPrefix": "*"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-vm-nic', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[format('{0}/subnets/apps', resourceId('Microsoft.Network/virtualnetworks', 'mynet'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-nsg', parameters('prefix')))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-nsg', parameters('prefix')))]",
+        "[resourceId('Microsoft.Network/virtualnetworks', 'mynet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-linux-vm-nic', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[format('{0}/subnets/apps', resourceId('Microsoft.Network/virtualnetworks', 'mynet'))]"
+              },
+              "privateIPAllocationMethod": "Dynamic"
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-nsg', parameters('prefix')))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Network/networkSecurityGroups', format('{0}-nsg', parameters('prefix')))]",
+        "[resourceId('Microsoft.Network/virtualnetworks', 'mynet')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}-vm', parameters('prefix'))]",
+      "location": "[parameters('location')]",
+      "identity": {
+        "type": "UserAssigned",
+        "userAssignedIdentities": {
+          "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'vmIdentity')]": {}
+        }
+      },
+      "properties": {
+        "osProfile": {
+          "computerName": "win1-vm",
+          "adminUsername": "[variables('adminUsername')]",
+          "adminPassword": "[parameters('password')]"
+        },
+        "hardwareProfile": {
+          "vmSize": "Standard_B2ms"
+        },
+        "storageProfile": {
+          "imageReference": {
+            "publisher": "MicrosoftWindowsServer",
+            "offer": "WindowsServer",
+            "sku": "2016-Datacenter",
+            "version": "latest"
+          },
+          "osDisk": {
+            "createOption": "FromImage"
+          },
+          "dataDisks": []
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "properties": {
+                "primary": true
+              },
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-vm-nic', parameters('prefix')))]"
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'vmIdentity')]",
+        "[resourceId('Microsoft.Network/networkInterfaces', format('{0}-vm-nic', parameters('prefix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}/Microsoft.EnterpriseCloud.Monitoring', format('{0}-vm', parameters('prefix')))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "Microsoft.EnterpriseCloud.Monitoring",
+        "type": "MicrosoftMonitoringAgent",
+        "typeHandlerVersion": "1.0",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "workspaceId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('adminUsername'))).customerId]"
+        },
+        "protectedSettings": {
+          "workspaceKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('adminUsername')), '2015-03-20').primarySharedKey]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-vm', parameters('prefix')))]",
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('adminUsername'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}/DAExtension', format('{0}-vm', parameters('prefix')))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "Microsoft.Azure.Monitoring.DependencyAgent",
+        "type": "DependencyAgentWindows",
+        "typeHandlerVersion": "9.5",
+        "autoUpgradeMinorVersion": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-vm', parameters('prefix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Compute/virtualMachines/extensions",
+      "apiVersion": "2020-06-01",
+      "name": "[format('{0}/install', format('{0}-vm', parameters('prefix')))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "publisher": "Microsoft.Compute",
+        "type": "CustomScriptExtension",
+        "typeHandlerVersion": "1.7",
+        "autoUpgradeMinorVersion": true,
+        "settings": {
+          "fileUris": [
+            "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/scripts/prepareWindows.ps1",
+            "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/app.zip",
+            "https://raw.githubusercontent.com/tkubica12/azdefender-demo/master/artifacts/contosoclinic.bacpac"
+          ]
+        },
+        "protectedSettings": {
+          "commandToExecute": "[format('powershell.exe -ExecutionPolicy Unrestricted -File prepareWindows.ps1 -sqlConnectionString \"Server=tcp:{0},1433;Initial Catalog={1};Persist Security Info=False;User ID={2};Password={3};MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;\"  -clientId {4} -clientSecret {5}', reference(resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))).fullyQualifiedDomainName, format('{0}/{1}', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName')), reference(resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))).administratorLogin, reference(resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))).administratorLoginPassword, parameters('spSqlEncryptClientId'), parameters('spSqlEncryptClientSecret'))]"
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers/databases', split(format('{0}/{1}', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName')), '/')[0], split(format('{0}/{1}', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName')), '/')[1])]",
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+        "[resourceId('Microsoft.Compute/virtualMachines', format('{0}-vm', parameters('prefix')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "name": "[uniqueString(resourceGroup().id)]",
+      "location": "[parameters('location')]",
+      "kind": "StorageV2",
+      "sku": {
+        "name": "Standard_LRS"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers",
+      "apiVersion": "2019-06-01-preview",
+      "name": "[format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id))]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "administratorLogin": "[variables('adminUsername')]",
+        "administratorLoginPassword": "[parameters('password')]"
+      }
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2014-04-01",
+      "name": "[format('{0}/AllowAllWindowsAzureIps', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "0.0.0.0"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/firewallRules",
+      "apiVersion": "2014-04-01",
+      "name": "[format('{0}/all', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "startIpAddress": "0.0.0.0",
+        "endIpAddress": "255.255.255.255"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/auditingSettings",
+      "apiVersion": "2017-03-01-preview",
+      "name": "[format('{0}/defaultAuditingSettings', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "state": "Enabled",
+        "isAzureMonitorTargetEnabled": true
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/securityAlertPolicies",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[format('{0}/default', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "state": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/vulnerabilityAssessments",
+      "apiVersion": "2018-06-01-preview",
+      "name": "[format('{0}/Default', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "storageContainerPath": "[format('https://{0}, .blob.core.windows.net/vulnerability-assessment/', uniqueString(resourceGroup().id))]",
+        "recurringScans": {
+          "isEnabled": true,
+          "emailSubscriptionAdmins": false,
+          "emails": []
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', uniqueString(resourceGroup().id))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/administrators",
+      "apiVersion": "2019-06-01-preview",
+      "name": "[format('{0}/ActiveDirectory', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+      "properties": {
+        "administratorType": "ActiveDirectory",
+        "login": "sqlLoginIdentity",
+        "sid": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'sqlLoginIdentity')).principalId]",
+        "tenantId": "[subscription().tenantId]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', 'sqlLoginIdentity')]",
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases",
+      "apiVersion": "2020-08-01-preview",
+      "name": "[format('{0}/{1}', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName'))]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "GP_S_Gen5",
+        "tier": "GeneralPurpose",
+        "family": "Gen5",
+        "capacity": 2
+      },
+      "properties": {
+        "collation": "SQL_Latin1_General_CP1_CI_AS",
+        "maxSizeBytes": 1073741824,
+        "catalogCollation": "SQL_Latin1_General_CP1_CI_AS",
+        "zoneRedundant": false,
+        "readScale": "Disabled",
+        "autoPauseDelay": 60,
+        "storageAccountType": "GRS",
+        "minCapacity": 0
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/securityAlertPolicies",
+      "apiVersion": "2020-02-02-preview",
+      "name": "[format('{0}/{1}/default', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName'))]",
+      "properties": {
+        "state": "Enabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/transparentDataEncryption",
+      "apiVersion": "2014-04-01",
+      "name": "[format('{0}/{1}/current', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName'))]",
+      "properties": {
+        "status": "Disabled"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/vulnerabilityAssessments",
+      "apiVersion": "2017-03-01-preview",
+      "name": "[format('{0}/{1}/Default', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName'))]",
+      "properties": {
+        "storageContainerPath": "[format('https://{0}, .blob.core.windows.net/vulnerability-assessment/', uniqueString(resourceGroup().id))]",
+        "recurringScans": {
+          "isEnabled": true,
+          "emailSubscriptionAdmins": false,
+          "emails": []
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]",
+        "[resourceId('Microsoft.Storage/storageAccounts', uniqueString(resourceGroup().id))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Sql/servers/databases/auditingSettings",
+      "apiVersion": "2017-03-01-preview",
+      "name": "[format('{0}/{1}/defaultAuditingSettings', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)), variables('dbName'))]",
+      "properties": {
+        "state": "Enabled",
+        "isAzureMonitorTargetEnabled": true,
+        "retentionDays": 0,
+        "auditActionsAndGroups": [
+          "SUCCESSFUL_DATABASE_AUTHENTICATION_GROUP",
+          "FAILED_DATABASE_AUTHENTICATION_GROUP",
+          "BATCH_COMPLETED_GROUP"
+        ]
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Sql/servers', format('{0}-sql-{1}', parameters('prefix'), uniqueString(resourceGroup().id)))]"
+      ]
+    },
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2020-08-01",
+      "name": "[variables('adminUsername')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    }
+  ]
+}
